@@ -21,6 +21,8 @@ pub struct Problem {
     pub expr: Option<Vec<Tok>>,
     /// A labeled diagram (triangles, the unit circle).
     pub figure: Option<Figure>,
+    /// Values the scratchpad starts with, like a = 4, b = −12 (name, number).
+    pub given: Vec<(String, String)>,
 }
 
 impl Problem {
@@ -95,7 +97,7 @@ pub(crate) const NAMES: [&str; 10] = ["Ana", "Ben", "Lia", "Miko", "Jun", "Bea",
 const FRUITS: [&str; 6] = ["🍎", "🍊", "🍓", "🥭", "🍌", "🍇"];
 
 pub(crate) fn problem(prompt: impl Into<String>, answer: Answer, hints: Vec<String>) -> Problem {
-    Problem { prompt: prompt.into(), visual: None, answer, hints, column: None, expr: None, figure: None }
+    Problem { prompt: prompt.into(), visual: None, answer, hints, column: None, expr: None, figure: None, given: Vec::new() }
 }
 
 /// " + 5" or " − 5", for writing terms after the first.
@@ -123,6 +125,11 @@ pub(crate) fn term(n: i64, var: &str) -> String {
 
 pub(crate) fn wrap(n: i64) -> String {
     if n < 0 { format!("(−{})", -n) } else { n.to_string() }
+}
+
+/// The problem, with values ready in the scratchpad.
+pub(crate) fn given(p: Problem, values: &[(&str, i64)]) -> Problem {
+    Problem { given: values.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), ..p }
 }
 
 /// The problem, with a diagram.
@@ -1237,6 +1244,7 @@ fn pythagoras(g: &mut G) -> Problem {
     if g.random_bool(0.6) {
         with(
 right(b as f64, a as f64, "", b.to_string(), a.to_string(), "?"),
+given(
 problem(
             format!("A right triangle has legs {a} and {b}. How long is the longest side (the hypotenuse)?"),
             Answer::Int(c),
@@ -1245,10 +1253,12 @@ problem(
                 format!("{a}² + {b}² = {} + {} = {}", a * a, b * b, c * c),
                 format!("$c = {}$ = {c}", sqrt(c * c)),
             ],
-        ))
+        ),
+&[("a", a), ("b", b)]))
     } else {
         with(
 right(b as f64, a as f64, "", "?", a.to_string(), c.to_string()),
+given(
 problem(
             format!("A right triangle has a hypotenuse of {c} and one leg of {a}. How long is the other leg?"),
             Answer::Int(b),
@@ -1257,7 +1267,8 @@ problem(
                 format!("{c}² − {a}² = {} − {} = {}", c * c, a * a, b * b),
                 format!("$b = {}$ = {b}", sqrt(b * b)),
             ],
-        ))
+        ),
+&[("c", c), ("a", a)]))
     }
 }
 

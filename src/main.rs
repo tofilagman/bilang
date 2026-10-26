@@ -7,6 +7,7 @@
 
 mod advanced;
 mod answer;
+mod calc;
 mod column;
 mod confetti;
 mod expr;
@@ -17,6 +18,7 @@ mod levels;
 mod math;
 mod play;
 mod scores;
+mod scratch;
 mod sound;
 mod store;
 mod teach;
@@ -109,6 +111,12 @@ separator.frac-bar { min-height: 2px; background: currentColor; margin: 3px 0; }
 .radicand { border-top: 2px solid currentColor; padding: 1px 3px 0 3px; }
 .script { font-size: smaller; }
 .figure { font-size: 17px; font-weight: 700; }
+button.pad-key { font-size: 15px; font-weight: 700; padding: 4px 8px; min-height: 30px; border-radius: 10px; background: white; color: #3a3a7a; }
+button.pad-key.given { background: #dff3ff; }
+entry.pad-entry { font-size: 18px; min-height: 40px; border-radius: 12px; }
+.pad-line { background: white; border-radius: 12px; padding: 8px 10px; font-size: 17px; box-shadow: 0 1px 4px alpha(black, 0.08); }
+.pad-message { color: #b54708; font-size: 15px; }
+.paper { border-radius: 12px; border: 1px solid #c9d6ee; }
 .colgrid separator.rule { min-height: 4px; background: #3a3a7a; }
 .stat { background: white; border-radius: 20px; padding: 14px 10px; box-shadow: 0 3px 8px alpha(black, 0.08); }
 .stat-num { font-size: 26px; font-weight: 800; color: #2d2d5a; }
@@ -429,6 +437,21 @@ fn grown_up_menu(app: &Rc<App>) -> gtk::MenuButton {
         });
     }
     v.append(&unlock);
+    // when the scratchpad is offered (it would make arithmetic levels too easy)
+    const MODES: [(&str, &str); 3] = [("auto", "Scratchpad: high school worlds"), ("always", "Scratchpad: every level"), ("never", "Scratchpad: off")];
+    let modes = gtk::DropDown::from_strings(&MODES.map(|m| m.1));
+    let current = app.store.borrow().profiles[app.player.get()].scratchpad.clone();
+    modes.set_selected(MODES.iter().position(|m| m.0 == current).unwrap_or(0) as u32);
+    {
+        let app = app.clone();
+        modes.connect_selected_notify(move |d| {
+            let mut s = app.store.borrow_mut();
+            let i = app.player.get();
+            s.profiles[i].scratchpad = MODES[d.selected() as usize].0.to_string();
+            s.save();
+        });
+    }
+    v.append(&modes);
     let sheet = gtk::Button::builder().label("📊 Score sheet").build();
     v.append(&sheet);
     let delete = gtk::Button::builder().label("Delete this player…").css_classes(["destructive-action"]).build();

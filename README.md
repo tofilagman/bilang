@@ -251,6 +251,7 @@ packaging/    app icon, Mac/Windows/Linux installers
   - `BILANG_DATA=<dir>` uses another data folder.
   - `BILANG_START=<player>[:<level>]` opens a player's map or a level.
   - `BILANG_SHEET=<player>` opens a score sheet.
+  - `BILANG_SCRATCH=1` opens the scratchpad tab with the cursor in it.
   - `BILANG_DEBUG=1` logs each answer and lesson step.
 
 Ideas, new levels, translations and bug reports are all welcome. Open an issue or a

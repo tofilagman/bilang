@@ -22,6 +22,7 @@ use crate::{
     figure,
     learn::Learn,
     math,
+    scratch::Scratch,
     levels::{self, Level, Problem},
     sound::Cue,
     star_text,
@@ -88,6 +89,7 @@ struct Play {
     count_btns: Vec<(usize, gtk::ToggleButton)>,
     start: gtk::Button,
     learn: Rc<Learn>,
+    scratch: Rc<Scratch>,
     tip: gtk::Label,
     extra_keys: gtk::Box,
     hints: gtk::Box,
@@ -264,7 +266,26 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
     side.append(&t2);
     side.append(&hints);
     side.append(&hint_btn);
-    let side_scroll = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&side).css_classes(["side"]).build();
+    let side_scroll = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).child(&side).build();
+
+    // The scratchpad sits behind a second tab, where the level allows it.
+    let scratch = Scratch::new();
+    let side_stack = gtk::Stack::builder().transition_type(gtk::StackTransitionType::Crossfade).vexpand(true).build();
+    side_stack.add_named(&side_scroll, Some("help"));
+    side_stack.add_named(&scratch.root, Some("scratch"));
+    let t_help = gtk::ToggleButton::builder().label("💡 Help").active(true).css_classes(["soft"]).build();
+    let t_scratch = gtk::ToggleButton::builder().label("🧮 Scratchpad").css_classes(["soft"]).group(&t_help).build();
+    let side_tabs = gtk::Box::builder().spacing(6).homogeneous(true).margin_top(12).margin_start(14).margin_end(14).build();
+    side_tabs.append(&t_help);
+    side_tabs.append(&t_scratch);
+    let scratch_ok = app.store.borrow().profiles[app.player.get()].scratchpad_in(world);
+    side_tabs.set_visible(scratch_ok);
+    // BILANG_SCRATCH=1 opens the scratchpad tab with the cursor in it, for testing
+    // (only where the scratchpad is allowed).
+    let scratch_test = scratch_ok && std::env::var_os("BILANG_SCRATCH").is_some();
+    let sidebar = gtk::Box::builder().orientation(gtk::Orientation::Vertical).css_classes(["side"]).build();
+    sidebar.append(&side_tabs);
+    sidebar.append(&side_stack);
 
     let split = adw::OverlaySplitView::builder()
         .sidebar_position(gtk::PackType::End)
@@ -272,12 +293,26 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
         .max_sidebar_width(380.0)
         .sidebar_width_fraction(0.32)
         .show_sidebar(true)
-        .sidebar(&side_scroll)
+        .sidebar(&sidebar)
         .content(&overlay)
         .build();
 
     let help = gtk::ToggleButton::builder().label("💡 Help").active(true).build();
     help.bind_property("active", &split, "show-sidebar").bidirectional().build();
+    if scratch_test {
+        let t = t_scratch.clone();
+        glib::idle_add_local_once(move || t.set_active(true));
+    }
+    {
+        // The scratchpad wants a little more room than the help text.
+        let (stack, split) = (side_stack.clone(), split.clone());
+        t_help.connect_toggled(move |b| {
+            let pad = !b.is_active();
+            stack.set_visible_child_name(if pad { "scratch" } else { "help" });
+            split.set_max_sidebar_width(if pad { 460.0 } else { 380.0 });
+            split.set_sidebar_width_fraction(if pad { 0.4 } else { 0.32 });
+        });
+    }
     let header = adw::HeaderBar::new();
     header.pack_end(&help);
     header.pack_end(&app.sound_button());
@@ -327,6 +362,7 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
         count_btns,
         start,
         learn,
+        scratch,
         tip,
         extra_keys,
         hints,
@@ -353,6 +389,19 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
     {
         let p = play.clone();
         play.start.connect_clicked(move |_| p.begin());
+    }
+    {
+        // "↪" on a scratchpad line puts that result in the answer box.
+        let p = Rc::downgrade(&play);
+        play.scratch.connect_use(move |value| {
+            if let Some(p) = p.upgrade()
+                && !p.solved.get()
+            {
+                p.entry.set_text(value);
+                p.entry.grab_focus();
+                p.entry.set_position(-1);
+            }
+        });
     }
     {
         let p = play.clone();
@@ -490,6 +539,7 @@ impl Play {
     }
 
     fn open_learn(self: &Rc<Self>) {
+        self.scratch.reset(&[]);
         // During a lesson Kiko does the hinting; the side panel keeps just the lesson text.
         clear(&self.hints);
         self.hint_btn.set_sensitive(false);
@@ -599,6 +649,11 @@ impl Play {
         self.card.remove_css_class("right");
         self.card.remove_css_class("wrong");
         self.tip.set_text(p.answer.format_tip());
+        self.scratch.reset(&p.given);
+        if std::env::var_os("BILANG_SCRATCH").is_some() && self.scratch.root.is_drawable() {
+            let s = self.scratch.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || s.focus());
+        }
         clear(&self.col_holder);
         *self.colpad.borrow_mut() = None;
         if let Some(col) = p.column {

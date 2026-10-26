@@ -8,7 +8,7 @@ use rand::Rng;
 use crate::answer::{Answer, minus, show_dec};
 use crate::expr::sup;
 use crate::figure::Figure;
-use crate::levels::{G, Problem, coef, right, with, fm, frac, mfr, nonzero, pick, problem, ri, signed, simplify_hint, sqrt, term, wrap};
+use crate::levels::{G, Problem, coef, given, right, with, fm, frac, mfr, nonzero, pick, problem, ri, signed, simplify_hint, sqrt, term, wrap};
 
 fn sub(n: i64) -> String {
     const D: [char; 10] = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
@@ -169,7 +169,8 @@ pub fn quadformula(g: &mut G) -> Problem {
     let d = b * b - 4 * a * c;
     let s = (a * (r1 - r2)).abs();
     let (x1, x2) = ((-b + s) / (2 * a), (-b - s) / (2 * a));
-    problem(
+    given(
+problem(
         format!("Solve with the quadratic formula:\n{} = 0", quad(a, b, c)),
         Answer::Roots(r1, r2),
         vec![
@@ -183,7 +184,8 @@ pub fn quadformula(g: &mut G) -> Problem {
                 minus(x2)
             ),
         ],
-    )
+    ),
+&[("a", a), ("b", b), ("c", c)])
 }
 
 pub fn discriminant(g: &mut G) -> Problem {
@@ -209,7 +211,8 @@ pub fn discriminant(g: &mut G) -> Problem {
     } else {
         ("less than 0, so there are no real solutions", 0)
     };
-    problem(
+    given(
+problem(
         format!("How many real solutions does\n{} = 0\nhave?", quad(a, b, c)),
         Answer::Int(answer),
         vec![
@@ -217,7 +220,8 @@ pub fn discriminant(g: &mut G) -> Problem {
             format!("a = {}, b = {}, c = {}: b² − 4ac = {} − {} = {}", minus(a), minus(b), minus(c), b * b, wrap(4 * a * c), minus(d)),
             format!("{} is {word}.", minus(d)),
         ],
-    )
+    ),
+&[("a", a), ("b", b), ("c", c)])
 }
 
 pub fn functions(g: &mut G) -> Problem {
@@ -369,7 +373,8 @@ pub fn growth(g: &mut G) -> Problem {
                 })
                 .collect();
             let v = p * (100 + r).pow(n as u32) / 100i64.pow(n as u32);
-            problem(
+            given(
+problem(
                 format!("₱{p} is saved at {r}% interest a year, compounded yearly. How much is there after {n} years?"),
                 Answer::Int(v),
                 vec![
@@ -377,7 +382,8 @@ pub fn growth(g: &mut G) -> Problem {
                     format!("₱{p} × {mult}{} … {}", sup(n), years.join(", ")),
                     format!("After {n} years there is ₱{v}"),
                 ],
-            )
+            ),
+&[("P", p), ("r", r), ("n", n)])
         }
     }
 }
@@ -499,17 +505,22 @@ const IN_PI: &str = "Answer in terms of π: type the number in front of π.";
 pub fn circles(g: &mut G) -> Problem {
     let r = ri(g, 2, 12);
     match ri(g, 0, 2) {
-        0 => problem(
+        0 => given(
+problem(
             format!("A circle has a radius of {r} cm. What is its area?\n{IN_PI}"),
             Answer::Int(r * r),
             vec!["Area of a circle = π × r².".to_string(), format!("{r}² = {}", r * r), format!("Area = {}π cm²", r * r)],
         ),
-        1 => problem(
+&[("r", r)]),
+        1 => given(
+problem(
             format!("A circle has a radius of {r} cm. What is its circumference (the distance around)?\n{IN_PI}"),
             Answer::Int(2 * r),
             vec!["Circumference = 2 × π × r, which is π × the diameter.".to_string(), format!("2 × {r} = {}", 2 * r), format!("Circumference = {}π cm", 2 * r)],
         ),
-        _ => problem(
+&[("r", r)]),
+        _ => given(
+problem(
             format!("A circle has a diameter of {} cm. What is its area?\n{IN_PI}", 2 * r),
             Answer::Int(r * r),
             vec![
@@ -518,6 +529,7 @@ pub fn circles(g: &mut G) -> Problem {
                 format!("Area = {}π cm²", r * r),
             ],
         ),
+&[("d", 2 * r)]),
     }
 }
 
@@ -525,16 +537,19 @@ pub fn volume(g: &mut G) -> Problem {
     match ri(g, 0, 4) {
         0 => {
             let (l, w, h) = (ri(g, 2, 12), ri(g, 2, 10), ri(g, 2, 10));
-            problem(
+            given(
+problem(
                 format!("A box is {l} cm long, {w} cm wide and {h} cm tall. What is its volume in cubic cm?"),
                 Answer::Int(l * w * h),
                 vec!["Volume of a box = length × width × height.".to_string(), format!("{l} × {w} = {}", l * w), format!("{} × {h} = {} cm³", l * w, l * w * h)],
-            )
+            ),
+&[("l", l), ("w", w), ("h", h)])
         }
         1 => {
             let (l, w, h) = (ri(g, 2, 10), ri(g, 2, 8), ri(g, 2, 8));
             let (a, b, c) = (l * w, l * h, w * h);
-            problem(
+            given(
+problem(
                 format!("A box is {l} cm long, {w} cm wide and {h} cm tall. What is its surface area in square cm?"),
                 Answer::Int(2 * (a + b + c)),
                 vec![
@@ -542,15 +557,18 @@ pub fn volume(g: &mut G) -> Problem {
                     format!("{l} × {w} = {a}, {l} × {h} = {b}, {w} × {h} = {c}"),
                     format!("2 × ({a} + {b} + {c}) = 2 × {} = {} cm²", a + b + c, 2 * (a + b + c)),
                 ],
-            )
+            ),
+&[("l", l), ("w", w), ("h", h)])
         }
         2 => {
             let (r, h) = (ri(g, 2, 8), ri(g, 2, 12));
-            problem(
+            given(
+problem(
                 format!("A cylinder has a radius of {r} cm and a height of {h} cm. What is its volume?\n{IN_PI}"),
                 Answer::Int(r * r * h),
                 vec!["Volume of a cylinder = π × r² × h (the circle's area times the height).".to_string(), format!("{r}² = {}", r * r), format!("{} × {h} = {}, so V = {}π cm³", r * r, r * r * h, r * r * h)],
-            )
+            ),
+&[("r", r), ("h", h)])
         }
         3 => {
             let (r, h) = loop {
@@ -560,20 +578,24 @@ pub fn volume(g: &mut G) -> Problem {
                 }
             };
             let v = r * r * h / 3;
-            problem(
+            given(
+problem(
                 format!("A cone has a radius of {r} cm and a height of {h} cm. What is its volume?\n{IN_PI}"),
                 Answer::Int(v),
                 vec!["Volume of a cone, one third of a cylinder:\n$V = \\frac{1}{3}πr^2h$".to_string(), format!("{r}² × {h} = {}", r * r * h), format!("{} ÷ 3 = {v}, so V = {v}π cm³", r * r * h)],
-            )
+            ),
+&[("r", r), ("h", h)])
         }
         _ => {
             let r = pick(g, &[3, 6, 9]);
             let v = 4 * r * r * r / 3;
-            problem(
+            given(
+problem(
                 format!("A ball (sphere) has a radius of {r} cm. What is its volume?\n{IN_PI}"),
                 Answer::Int(v),
                 vec!["Volume of a sphere:\n$V = \\frac{4}{3}πr^3$".to_string(), format!("{r}³ = {}", r * r * r), format!("4 × {} ÷ 3 = {v}, so V = {v}π cm³", r * r * r)],
-            )
+            ),
+&[("r", r)])
         }
     }
 }
@@ -585,7 +607,8 @@ pub fn coords(g: &mut G) -> Problem {
         let (sx, sy) = (if g.random_bool(0.5) { 1 } else { -1 }, if g.random_bool(0.5) { 1 } else { -1 });
         let (x1, y1) = (ri(g, -6, 6), ri(g, -6, 6));
         let (x2, y2) = (x1 + sx * dx, y1 + sy * dy);
-        problem(
+        given(
+problem(
             format!("How far apart are the points {} and {}?", pt(x1, y1), pt(x2, y2)),
             Answer::Int(d),
             vec![
@@ -593,12 +616,14 @@ pub fn coords(g: &mut G) -> Problem {
                 format!("Across: {dx}, up or down: {dy}. {dx}² + {dy}² = {} + {} = {}", dx * dx, dy * dy, d * d),
                 format!("${}$ = {d}", sqrt(d * d)),
             ],
-        )
+        ),
+&[("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)])
     } else {
         let (x1, y1) = (ri(g, -8, 8), ri(g, -8, 8));
         let (x2, y2) = (x1 + 2 * ri(g, -6, 6), y1 + 2 * ri(g, -6, 6));
         let (mx, my) = ((x1 + x2) / 2, (y1 + y2) / 2);
-        problem(
+        given(
+problem(
             format!("What is the midpoint of {} and {}?", pt(x1, y1), pt(x2, y2)),
             Answer::Pair(mx, my),
             vec![
@@ -606,7 +631,8 @@ pub fn coords(g: &mut G) -> Problem {
                 format!("x: ${}$ = {}", frac(format!("{}{}", minus(x1), signed(x2)), 2), minus(mx)),
                 format!("y: ${}$ = {}, so the midpoint is {}", frac(format!("{}{}", minus(y1), signed(y2)), 2), minus(my), pt(mx, my)),
             ],
-        )
+        ),
+&[("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)])
     }
 }
 
@@ -645,6 +671,7 @@ pub fn trigratios(g: &mut G) -> Problem {
         };
         with(
 right(a as f64, o as f64, "A", a.to_string(), o.to_string(), h.to_string()),
+given(
 problem(
             format!("In a right triangle, the side opposite angle A is {o}, the side next to it (adjacent) is {a}, and the hypotenuse is {h}.\nWhat is {which} A?"),
             Answer::frac(n, d),
@@ -653,11 +680,13 @@ problem(
                 format!("${which} A = {} = {}$", frac(top, bottom), frac(n, d)),
                 simplify_hint(n, d),
             ],
-        ))
+        ),
+&[("opp", o), ("adj", a), ("hyp", h)]))
     } else {
         let k = ri(g, 2, 4);
         with(
 right(a as f64, o as f64, "A", "", "?", (h * k).to_string()),
+given(
 problem(
             format!("In a right triangle,\n$\\sin A = {}$\nand the hypotenuse is {}. How long is the side opposite A?", frac(o, h), h * k),
             Answer::Int(o * k),
@@ -666,7 +695,8 @@ problem(
                 format!("${} × {}$ = {o} × ({} ÷ {h})", frac(o, h), h * k, h * k),
                 format!("= {o} × {k} = {}", o * k),
             ],
-        ))
+        ),
+&[("hyp", h * k)]))
     }
 }
 
@@ -744,6 +774,7 @@ pub fn lawsincos(g: &mut G) -> Problem {
         let (deg, op) = if wide { (120, '+') } else { (60, '−') };
         with(
 Figure::Sas { a: a as f64, b: b as f64, deg: deg as f64, a_label: a.to_string(), b_label: b.to_string(), angle: format!("{deg}°"), third: "?".to_string() },
+given(
 problem(
             format!("In a triangle, two sides are {a} and {b}, and the angle between them is {deg}°. How long is the third side?"),
             Answer::Int(c),
@@ -759,11 +790,13 @@ problem(
                 ),
                 format!("$c = {}$ = {c}", sqrt(c * c)),
             ],
-        ))
+        ),
+&[("a", a), ("b", b), ("C", deg)]))
     } else {
         let a = ri(g, 2, 15);
         with(
 right(3f64.sqrt(), 1.0, "30°", "", &format!("a = {a}"), "b = ?"),
+given(
 problem(
             format!("In triangle ABC, angle A = 30° and angle B = 90°. Side a (opposite A) is {a}. How long is side b (opposite B)?"),
             Answer::Int(2 * a),
@@ -772,7 +805,8 @@ problem(
                 format!("sin 30° = {} and sin 90° = 1, so\n${} = {}$", mfr(1, 2), frac(a, frac(1, 2)), frac("b", 1)),
                 format!("{a} × 2 = {}, so b = {}", 2 * a, 2 * a),
             ],
-        ))
+        ),
+&[("a", a), ("A", 30), ("B", 90)]))
     }
 }
 
@@ -964,7 +998,8 @@ pub fn counting(g: &mut G) -> Problem {
             let (n, r) = (ri(g, 5, 10), ri(g, 2, 3));
             let p: i64 = (0..r).map(|i| n - i).product();
             let chain = (0..r).map(|i| (n - i).to_string()).collect::<Vec<_>>().join(" × ");
-            problem(
+            given(
+problem(
                 format!("{n} runners are in a race. In how many ways can the top {r} places (1st, 2nd{}) be given out?", if r == 3 { ", 3rd" } else { "" }),
                 Answer::Int(p),
                 vec![
@@ -972,13 +1007,15 @@ pub fn counting(g: &mut G) -> Problem {
                     format!("1st: {n} choices, then one fewer each time: {chain}"),
                     format!("= {p}"),
                 ],
-            )
+            ),
+&[("n", n), ("r", r)])
         }
         2 => {
             let (n, r) = (ri(g, 4, 10), ri(g, 2, 3));
             let p: i64 = (0..r).map(|i| n - i).product();
             let c = p / fact(r);
-            problem(
+            given(
+problem(
                 format!("In how many ways can you choose {r} kids out of {n} for a team? (Order doesn't matter.)"),
                 Answer::Int(c),
                 vec![
@@ -986,7 +1023,8 @@ pub fn counting(g: &mut G) -> Problem {
                     format!("Ordered picks: {}. Each team was counted {r}! = {} times.", p, fact(r)),
                     format!("{p} ÷ {} = {c}", fact(r)),
                 ],
-            )
+            ),
+&[("n", n), ("r", r)])
         }
         _ => {
             let (s, p, h) = (ri(g, 2, 6), ri(g, 2, 5), ri(g, 2, 4));

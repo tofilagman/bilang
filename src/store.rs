@@ -29,6 +29,13 @@ pub struct Profile {
     /// For older kids who want to jump ahead, set by a grown-up.
     #[serde(default)]
     pub unlock_all: bool,
+    /// When the scratchpad shows: "auto" (high school worlds), "always" or "never".
+    #[serde(default = "auto")]
+    pub scratchpad: String,
+}
+
+fn auto() -> String {
+    "auto".into()
 }
 
 impl Profile {
@@ -47,6 +54,16 @@ impl Profile {
             (3, _) => (50, "You got 3 stars here, so let's try a Challenge!"),
             (1 | 2, _) => (20, "Some practice will get you to 3 stars."),
             _ => (10, "This one is new, so let's start small."),
+        }
+    }
+
+    /// The scratchpad is for formulas, not for skipping arithmetic practice:
+    /// by default it shows from Equation Galaxy (world 8) on.
+    pub fn scratchpad_in(&self, world: usize) -> bool {
+        match self.scratchpad.as_str() {
+            "always" => true,
+            "never" => false,
+            _ => crate::levels::WORLDS.get(world).is_some_and(|w| ["Equation Galaxy", "Triangle Island", "Chance Carnival"].contains(&w.name)),
         }
     }
 
@@ -108,7 +125,7 @@ impl Store {
 
     pub fn add(&mut self, name: String, avatar: String) -> usize {
         let id = self.profiles.iter().map(|p| p.id).max().unwrap_or(0) + 1;
-        self.profiles.push(Profile { id, name, avatar, stars: BTreeMap::new(), medals: BTreeMap::new(), learned: BTreeSet::new(), solved: 0, best_streak: 0, unlock_all: false });
+        self.profiles.push(Profile { id, name, avatar, stars: BTreeMap::new(), medals: BTreeMap::new(), learned: BTreeSet::new(), solved: 0, best_streak: 0, unlock_all: false, scratchpad: auto() });
         self.save();
         self.profiles.len() - 1
     }
