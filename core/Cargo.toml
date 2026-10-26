@@ -1,6 +1,6 @@
 [package]
 name = "bilang-core"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Bilang's engine: levels, hints, lessons, answer checking and progress, shared by the desktop and tablet apps"
 license = "MIT"
