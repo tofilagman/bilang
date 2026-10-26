@@ -3,7 +3,8 @@
 [![CI](https://github.com/tofilagman/bilang/actions/workflows/ci.yml/badge.svg)](https://github.com/tofilagman/bilang/actions/workflows/ci.yml)
 
 **Bilang** (Filipino for *count*) is a free desktop game that teaches children math,
-from counting apples all the way to solving quadratics. **Kiko the owl** guides each
+from counting apples all the way to high school algebra, trigonometry and probability.
+**Kiko the owl** guides each
 child through it. Kiko cheers them on, teaches every new skill step by step the way a
 parent or teacher would, and never leaves anyone stuck.
 
@@ -104,7 +105,7 @@ Open **📊 Score sheets** on the first screen to see each child's:
 
 ## What's inside
 
-Seven worlds and 51 levels, from Grade 1 up to high school:
+Ten worlds and 74 levels, from Grade 1 through high school:
 
 | World | Grades | What children learn |
 |---|---|---|
@@ -115,11 +116,18 @@ Seven worlds and 51 levels, from Grade 1 up to high school:
 | 🌊 Fraction Falls | 5–6 | simplifying, + − × ÷ fractions, decimals, percent |
 | 🌋 Integer Volcano | 6–7 | negative numbers, exponents & square roots, PEMDAS |
 | 🏔️ Algebra Peak | 7–10 | equations, substitution, proportions, sales & percents, Pythagoras, slope, systems, quadratics |
+| 🌌 Equation Galaxy | 9–11 | exponent rules, radicals, expanding (FOIL), the quadratic formula & discriminant, functions & inverses, inequalities, absolute value, growth & interest, logarithms |
+| 📐 Triangle Island | 8–11 | angles & polygons, circles, area & volume, distance & midpoint, similar triangles, SOH-CAH-TOA, special angles & radians, law of sines & cosines |
+| 🎪 Chance Carnival | 7–12 | mean, median, mode & range, probability, "and" events, permutations & combinations, expected value |
 
 - Every question is freshly generated, so there are always new ones to practice.
 - Finishing a level unlocks the next. Older children can skip ahead: a grown-up can
   turn on **Unlock all levels** in the ☰ menu on the map.
-- **"Almost!" answers** (6/8 instead of 3/4, x and y swapped, a forgotten remainder)
+- **Real math on screen:** fractions are stacked, square roots get their bar, and the
+  triangle and trig levels draw a labeled diagram of each problem (to scale, with the
+  side to find marked ?), plus the unit circle for special angles.
+- **"Almost!" answers** (6/8 instead of 3/4, x and y swapped, a forgotten remainder,
+  an inequality sign that wasn't flipped)
   get a friendly nudge instead of counting as wrong.
 - Stars: ⭐⭐⭐ for 90% or more right on the first try, ⭐⭐ for 60% or more, ⭐ for finishing.
 - Medals: 🥈 for 50 questions with 3 stars, 🏆 for 100.
@@ -207,11 +215,14 @@ anything over the internet.
 ```
 src/
   levels.rs   the worlds, levels and problem generators (with hints)
+  advanced.rs the high school levels (Algebra II, geometry & trig, statistics)
   answer.rs   reading and checking answers, "almost" feedback
   expr.rs     order-of-operations solver that explains each step
   teach.rs    the "Show me how" lesson scripts
   learn.rs    the lesson screen
   column.rs   the stacked ("two-layer") answer pad
+  math.rs     draws formulas (fractions, roots, exponents) written as $…$
+  figure.rs   labeled triangle and unit-circle diagrams
   play.rs     a level: question picker, play, results
   history.rs  session recording, stats, CSV export
   scores.rs   the parents' score sheet

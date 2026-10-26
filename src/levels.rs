@@ -3,6 +3,8 @@
 //! from a nudge to a fully worked solution with the problem's own numbers.
 
 use crate::answer::{Answer, gcd, lcm, minus, reduce, show_dec};
+use crate::advanced;
+use crate::figure::Figure;
 use crate::expr::{self, Tok, show, solve, sup};
 use rand::{Rng, rngs::StdRng};
 
@@ -17,6 +19,8 @@ pub struct Problem {
     pub column: Option<Column>,
     /// The expression, for order-of-operations problems, so the tutorial can walk it.
     pub expr: Option<Vec<Tok>>,
+    /// A labeled diagram (triangles, the unit circle).
+    pub figure: Option<Figure>,
 }
 
 impl Problem {
@@ -32,7 +36,7 @@ impl Problem {
                 };
                 format!("{} {op} {}", c.top, c.bottom)
             }
-            None => self.prompt.replace('\n', " ").trim_end_matches(" = ?").to_string(),
+            None => crate::math::plain(&self.prompt).replace('\n', " ").trim_end_matches(" = ?").to_string(),
         }
     }
 }
@@ -68,17 +72,17 @@ pub struct World {
     pub levels: &'static [Level],
 }
 
-type G = StdRng;
+pub(crate) type G = StdRng;
 
-fn ri(g: &mut G, lo: i64, hi: i64) -> i64 {
+pub(crate) fn ri(g: &mut G, lo: i64, hi: i64) -> i64 {
     g.random_range(lo..=hi)
 }
 
-fn pick<T: Copy>(g: &mut G, xs: &[T]) -> T {
+pub(crate) fn pick<T: Copy>(g: &mut G, xs: &[T]) -> T {
     xs[g.random_range(0..xs.len())]
 }
 
-fn nonzero(g: &mut G, lo: i64, hi: i64) -> i64 {
+pub(crate) fn nonzero(g: &mut G, lo: i64, hi: i64) -> i64 {
     loop {
         let n = ri(g, lo, hi);
         if n != 0 {
@@ -87,20 +91,20 @@ fn nonzero(g: &mut G, lo: i64, hi: i64) -> i64 {
     }
 }
 
-const NAMES: [&str; 10] = ["Ana", "Ben", "Lia", "Miko", "Jun", "Bea", "Paolo", "Tala", "Gabby", "Nico"];
+pub(crate) const NAMES: [&str; 10] = ["Ana", "Ben", "Lia", "Miko", "Jun", "Bea", "Paolo", "Tala", "Gabby", "Nico"];
 const FRUITS: [&str; 6] = ["🍎", "🍊", "🍓", "🥭", "🍌", "🍇"];
 
-fn problem(prompt: impl Into<String>, answer: Answer, hints: Vec<String>) -> Problem {
-    Problem { prompt: prompt.into(), visual: None, answer, hints, column: None, expr: None }
+pub(crate) fn problem(prompt: impl Into<String>, answer: Answer, hints: Vec<String>) -> Problem {
+    Problem { prompt: prompt.into(), visual: None, answer, hints, column: None, expr: None, figure: None }
 }
 
 /// " + 5" or " − 5", for writing terms after the first.
-fn signed(n: i64) -> String {
+pub(crate) fn signed(n: i64) -> String {
     if n < 0 { format!(" − {}", -n) } else { format!(" + {n}") }
 }
 
 /// A coefficient on x: 1 → "x", −1 → "−x", 3 → "3x".
-fn coef(n: i64, var: &str) -> String {
+pub(crate) fn coef(n: i64, var: &str) -> String {
     match n {
         1 => var.to_string(),
         -1 => format!("−{var}"),
@@ -109,7 +113,7 @@ fn coef(n: i64, var: &str) -> String {
 }
 
 /// A later term with its sign: " + 3x", " − x", or nothing for 0.
-fn term(n: i64, var: &str) -> String {
+pub(crate) fn term(n: i64, var: &str) -> String {
     match n {
         0 => String::new(),
         _ if n < 0 => format!(" − {}", coef(-n, var)),
@@ -117,24 +121,53 @@ fn term(n: i64, var: &str) -> String {
     }
 }
 
-fn wrap(n: i64) -> String {
+pub(crate) fn wrap(n: i64) -> String {
     if n < 0 { format!("(−{})", -n) } else { n.to_string() }
 }
 
-fn fr(n: i64, d: i64) -> String {
-    if d == 1 { minus(n) } else { format!("{}/{d}", minus(n)) }
+/// The problem, with a diagram.
+pub(crate) fn with(figure: Figure, p: Problem) -> Problem {
+    Problem { figure: Some(figure), ..p }
+}
+
+/// A right triangle: angle at the bottom left, right angle at the bottom right.
+pub(crate) fn right(adj: f64, opp: f64, angle: &str, adj_label: impl Into<String>, opp_label: impl Into<String>, hyp_label: impl Into<String>) -> Figure {
+    Figure::Right { adj, opp, angle: angle.into(), adj_label: adj_label.into(), opp_label: opp_label.into(), hyp_label: hyp_label.into() }
+}
+
+/// A stacked fraction for inside a `$…$` formula (drawn by math.rs).
+pub(crate) fn frac(top: impl std::fmt::Display, bottom: impl std::fmt::Display) -> String {
+    format!("\\frac{{{top}}}{{{bottom}}}")
+}
+
+pub(crate) fn sqrt(x: impl std::fmt::Display) -> String {
+    format!("\\sqrt{{{x}}}")
+}
+
+/// n/d inside a formula: a fraction (minus sign in front), or a whole number.
+pub(crate) fn fm(n: i64, d: i64) -> String {
+    match (n, d) {
+        (_, 1) => minus(n),
+        _ if n < 0 => format!("−{}", frac(-n, d)),
+        _ => frac(n, d),
+    }
+}
+
+/// n/d as a formula on its own: "$\frac{3}{4}$", or just the whole number.
+pub(crate) fn mfr(n: i64, d: i64) -> String {
+    if d == 1 { minus(n) } else { format!("${}$", fm(n, d)) }
 }
 
 /// "Simplify: 6/8 = 3/4" or a note that it already is.
-fn simplify_hint(n: i64, d: i64) -> String {
+pub(crate) fn simplify_hint(n: i64, d: i64) -> String {
     let (a, b) = reduce(n, d);
     if (a, b) == (n, d) {
-        format!("{} is already in simplest form, so that's the answer!", fr(n, d))
+        format!("{} is already in simplest form, so that's the answer!", mfr(n, d))
     } else if b == 1 {
-        format!("{n}/{d} is a whole number: {n} ÷ {d} = {}", minus(a))
+        format!("{} is a whole number: {n} ÷ {d} = {}", mfr(n, d), minus(a))
     } else {
         let g = gcd(n, d);
-        format!("Simplify: divide top and bottom by {g}. {}/{d} = {}", minus(n), fr(a, b))
+        format!("Simplify: divide top and bottom by {g}.\n${} = {}$", fm(n, d), fm(a, b))
     }
 }
 
@@ -771,12 +804,12 @@ fn simplify(g: &mut G) -> Problem {
     let k = ri(g, 2, 6);
     let (bn, bd) = (n * k, d * k);
     problem(
-        format!("Simplify {bn}/{bd}"),
+        format!("Simplify {}", mfr(bn, bd)),
         Answer::frac(bn, bd),
         vec![
             format!("Find the biggest number that divides both {bn} and {bd}."),
             format!("The greatest common factor of {bn} and {bd} is {k}."),
-            format!("{bn} ÷ {k} = {n} and {bd} ÷ {k} = {d}, so {bn}/{bd} = {n}/{d}"),
+            format!("{bn} ÷ {k} = {n} and {bd} ÷ {k} = {d}, so\n${} = {}$", frac(bn, bd), frac(n, d)),
         ],
     )
 }
@@ -790,11 +823,11 @@ fn addlike(g: &mut G) -> Problem {
     }
     let (s, op) = if plus { (a + b, '+') } else { (a - b, '−') };
     let mut p = problem(
-        format!("{a}/{d} {op} {b}/{d} = ?"),
+        format!("${} {op} {}$ = ?", frac(a, d), frac(b, d)),
         Answer::frac(s, d),
         vec![
             format!("The bottoms are the same, so keep {d} on the bottom."),
-            format!("{} the tops: {a} {op} {b} = {s}, so you have {s}/{d}.", if plus { "Add" } else { "Subtract" }),
+            format!("{} the tops: {a} {op} {b} = {s}, so you have {}.", if plus { "Add" } else { "Subtract" }, mfr(s, d)),
             simplify_hint(s, d),
         ],
     );
@@ -825,11 +858,18 @@ fn addunlike(g: &mut G) -> Problem {
     let (x, y) = (a * l / b, c * l / d);
     let (s, op) = if plus { (x + y, '+') } else { (x - y, '−') };
     problem(
-        format!("{a}/{b} {op} {c}/{d} = ?"),
+        format!("${} {op} {}$ = ?", frac(a, b), frac(c, d)),
         Answer::frac(s, l),
         vec![
             format!("The bottoms are different. Find a common denominator: the smallest number both {b} and {d} go into is {l}."),
-            format!("Rename them: {a}/{b} = {x}/{l} and {c}/{d} = {y}/{l}. Now {x} {op} {y} = {s}, so {s}/{l}."),
+            format!(
+                "Rename them:\n${} = {}$ and ${} = {}$\nNow {x} {op} {y} = {s}, so you have {}.",
+                frac(a, b),
+                frac(x, l),
+                frac(c, d),
+                frac(y, l),
+                mfr(s, l)
+            ),
             simplify_hint(s, l),
         ],
     )
@@ -838,11 +878,11 @@ fn addunlike(g: &mut G) -> Problem {
 fn mulfrac(g: &mut G) -> Problem {
     let (a, b, c, d) = two_fracs(g);
     problem(
-        format!("{a}/{b} × {c}/{d} = ?"),
+        format!("${} × {}$ = ?", frac(a, b), frac(c, d)),
         Answer::frac(a * c, b * d),
         vec![
             "Multiplying fractions is easy: tops times tops, bottoms times bottoms.".to_string(),
-            format!("{a} × {c} = {} and {b} × {d} = {}, so {}/{}.", a * c, b * d, a * c, b * d),
+            format!("{a} × {c} = {} and {b} × {d} = {}, so {}.", a * c, b * d, mfr(a * c, b * d)),
             simplify_hint(a * c, b * d),
         ],
     )
@@ -851,11 +891,11 @@ fn mulfrac(g: &mut G) -> Problem {
 fn divfrac(g: &mut G) -> Problem {
     let (a, b, c, d) = two_fracs(g);
     problem(
-        format!("{a}/{b} ÷ {c}/{d} = ?"),
+        format!("${} ÷ {}$ = ?", frac(a, b), frac(c, d)),
         Answer::frac(a * d, b * c),
         vec![
             "Keep, Change, Flip: keep the first fraction, change ÷ to ×, flip the second one.".to_string(),
-            format!("{a}/{b} × {d}/{c} = {}/{}", a * d, b * c),
+            format!("${} × {} = {}$", frac(a, b), frac(d, c), frac(a * d, b * c)),
             simplify_hint(a * d, b * c),
         ],
     )
@@ -988,7 +1028,7 @@ fn powroot(g: &mut G) -> Problem {
     } else {
         let k = ri(g, 2, 15);
         problem(
-            format!("√{} = ?", k * k),
+            format!("${}$ = ?", sqrt(k * k)),
             Answer::Int(k),
             vec![
                 format!("√ asks: what number times itself makes {}?", k * k),
@@ -1128,7 +1168,7 @@ fn proportion(g: &mut G) -> Problem {
     let k = ri(g, 2, 9);
     if g.random_bool(0.5) {
         problem(
-            format!("Solve for x:\n{a}/{b} = x/{}", b * k),
+            format!("Solve for x:\n${} = {}$", frac(a, b), frac("x", b * k)),
             Answer::Int(a * k),
             vec![
                 "Equal fractions: whatever you do to the bottom, do to the top.".to_string(),
@@ -1138,7 +1178,7 @@ fn proportion(g: &mut G) -> Problem {
         )
     } else {
         problem(
-            format!("Solve for x:\n{a}/{b} = {}/x", a * k),
+            format!("Solve for x:\n${} = {}$", frac(a, b), frac(a * k, "x")),
             Answer::Int(b * k),
             vec![
                 "Equal fractions: whatever you do to the top, do to the bottom.".to_string(),
@@ -1195,25 +1235,29 @@ fn percentword(g: &mut G) -> Problem {
 fn pythagoras(g: &mut G) -> Problem {
     let (a, b, c) = pick(g, &[(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25), (6, 8, 10), (9, 12, 15), (20, 21, 29)]);
     if g.random_bool(0.6) {
-        problem(
+        with(
+right(b as f64, a as f64, "", b.to_string(), a.to_string(), "?"),
+problem(
             format!("A right triangle has legs {a} and {b}. How long is the longest side (the hypotenuse)?"),
             Answer::Int(c),
             vec![
-                "Pythagoras: a² + b² = c², where c is the longest side.".to_string(),
+                "Pythagoras, where c is the longest side:\n$a^2 + b^2 = c^2$".to_string(),
                 format!("{a}² + {b}² = {} + {} = {}", a * a, b * b, c * c),
-                format!("c = √{} = {c}", c * c),
+                format!("$c = {}$ = {c}", sqrt(c * c)),
             ],
-        )
+        ))
     } else {
-        problem(
+        with(
+right(b as f64, a as f64, "", "?", a.to_string(), c.to_string()),
+problem(
             format!("A right triangle has a hypotenuse of {c} and one leg of {a}. How long is the other leg?"),
             Answer::Int(b),
             vec![
-                "Pythagoras: a² + b² = c². To find a leg: b² = c² − a².".to_string(),
+                "Pythagoras: a² + b² = c². To find a leg:\n$b^2 = c^2 − a^2$".to_string(),
                 format!("{c}² − {a}² = {} − {} = {}", c * c, a * a, b * b),
-                format!("b = √{} = {b}", b * b),
+                format!("$b = {}$ = {b}", sqrt(b * b)),
             ],
-        )
+        ))
     }
 }
 
@@ -1229,11 +1273,17 @@ fn slope(g: &mut G) -> Problem {
         format!("What is the slope of the line through ({}, {}) and ({}, {})?", minus(x1), minus(y1), minus(x2), minus(y2)),
         Answer::frac(dy, dx),
         vec![
-            "Slope = rise ÷ run = (y₂ − y₁) / (x₂ − x₁)".to_string(),
-            format!("({} − {}) / ({} − {}) = {} / {}", minus(y2), wrap(y1), minus(x2), wrap(x1), minus(dy), minus(dx)),
-            if gcd(dy, dx) == 1 && dx > 0 { format!("{}/{dx} is already simplest, so the slope is {}", minus(dy), fr(dy, dx)) } else {
+            "Slope = rise ÷ run:\n$slope = \\frac{y_2 − y_1}{x_2 − x_1}$".to_string(),
+            format!(
+                "${} = {}$",
+                frac(format!("{} − {}", minus(y2), wrap(y1)), format!("{} − {}", minus(x2), wrap(x1))),
+                frac(minus(dy), minus(dx))
+            ),
+            if gcd(dy, dx) == 1 && dx > 0 {
+                format!("{} is already simplest, so the slope is {}", mfr(dy, dx), mfr(dy, dx))
+            } else {
                 let (n, d) = reduce(dy, dx);
-                format!("Simplify: {}/{} = {}", minus(dy), minus(dx), fr(n, d))
+                format!("Simplify:\n${} = {}$", frac(minus(dy), minus(dx)), fm(n, d))
             },
         ],
     )
@@ -1351,14 +1401,14 @@ pub static WORLDS: &[World] = &[
         emoji: "🌊",
         grades: "Grades 5–6",
         levels: &[
-            Level { id: "simplify", title: "Simplest Form", make: simplify, lesson: "A fraction is a part of a whole. 3/4 means 3 parts out of 4.\n\nTo simplify, divide the top and bottom by the same number. 6/8 → divide both by 2 → 3/4.\n\nUse the biggest number that divides both (the GCF) to finish in one step." },
-            Level { id: "addlike", title: "Same Bottoms", make: addlike, lesson: "When the bottoms (denominators) are the same, just add or subtract the tops.\n\n2/7 + 3/7 = 5/7\n\nThe bottom stays the same, because the pieces are the same size." },
-            Level { id: "addunlike", title: "Different Bottoms", make: addunlike, lesson: "Different bottoms means different-sized pieces, so make them the same first.\n\n1/2 + 1/3: both 2 and 3 go into 6.\n1/2 = 3/6 and 1/3 = 2/6, so the answer is 5/6." },
-            Level { id: "mulfrac", title: "Multiplying Fractions", make: mulfrac, lesson: "Tops × tops, bottoms × bottoms.\n\n2/3 × 3/5 = 6/15 = 2/5\n\nThen simplify." },
-            Level { id: "divfrac", title: "Dividing Fractions", make: divfrac, lesson: "Keep, Change, Flip!\n\n• Keep the first fraction.\n• Change ÷ into ×.\n• Flip the second fraction upside down.\n\n1/2 ÷ 3/4 = 1/2 × 4/3 = 4/6 = 2/3" },
+            Level { id: "simplify", title: "Simplest Form", make: simplify, lesson: "A fraction is a part of a whole.\n$\\frac{3}{4}$ means 3 parts out of 4.\n\nTo simplify, divide the top and bottom by the same number:\n$\\frac{6}{8} = \\frac{6 ÷ 2}{8 ÷ 2} = \\frac{3}{4}$\n\nUse the biggest number that divides both (the GCF) to finish in one step." },
+            Level { id: "addlike", title: "Same Bottoms", make: addlike, lesson: "When the bottoms (denominators) are the same, just add or subtract the tops.\n\n$\\frac{2}{7} + \\frac{3}{7} = \\frac{5}{7}$\n\nThe bottom stays the same, because the pieces are the same size." },
+            Level { id: "addunlike", title: "Different Bottoms", make: addunlike, lesson: "Different bottoms means different-sized pieces, so make them the same first.\n\n$\\frac{1}{2} + \\frac{1}{3}$: both 2 and 3 go into 6.\n$\\frac{1}{2} + \\frac{1}{3} = \\frac{3}{6} + \\frac{2}{6} = \\frac{5}{6}$" },
+            Level { id: "mulfrac", title: "Multiplying Fractions", make: mulfrac, lesson: "Tops × tops, bottoms × bottoms.\n\n$\\frac{2}{3} × \\frac{3}{5} = \\frac{6}{15} = \\frac{2}{5}$\n\nThen simplify." },
+            Level { id: "divfrac", title: "Dividing Fractions", make: divfrac, lesson: "Keep, Change, Flip!\n\n• Keep the first fraction.\n• Change ÷ into ×.\n• Flip the second fraction upside down.\n\n$\\frac{1}{2} ÷ \\frac{3}{4} = \\frac{1}{2} × \\frac{4}{3} = \\frac{4}{6} = \\frac{2}{3}$" },
             Level { id: "decaddsub", title: "Decimal + and −", make: decaddsub, lesson: "Line up the decimal points, one under the other.\n\nIf one number has fewer places, add zeros: 3.5 is the same as 3.50.\n\nThen add or subtract like whole numbers and keep the point in place." },
             Level { id: "decmul", title: "Decimal ×", make: decmul, lesson: "1. Multiply as if there were no decimal points.\n2. Count how many digits are after the points in the question.\n3. Put the point back that many places from the right.\n\n0.3 × 0.4: 3 × 4 = 12, two places → 0.12" },
-            Level { id: "percent", title: "Percent", make: percent, lesson: "Percent means \"out of 100\". 25% = 25/100 = 1/4.\n\nHandy ones:\n• 50% = half\n• 25% = a quarter\n• 10% = divide by 10\n\nTo find p% of a number: number × p ÷ 100." },
+            Level { id: "percent", title: "Percent", make: percent, lesson: "Percent means \"out of 100\".\n$25\\% = \\frac{25}{100} = \\frac{1}{4}$\n\nHandy ones:\n• 50% = half\n• 25% = a quarter\n• 10% = divide by 10\n\nTo find p% of a number: number × p ÷ 100." },
         ],
     },
     World {
@@ -1368,7 +1418,7 @@ pub static WORLDS: &[World] = &[
         levels: &[
             Level { id: "intaddsub", title: "Negative Numbers + −", make: intaddsub, lesson: "Negative numbers are below zero, like a temperature of −3°.\n\n• Same signs: add the sizes, keep the sign. −3 + (−4) = −7\n• Different signs: subtract the sizes, keep the sign of the bigger one. −8 + 5 = −3\n• Subtracting a number is adding its opposite. 4 − (−2) = 4 + 2 = 6" },
             Level { id: "intmuldiv", title: "Negative Numbers × ÷", make: intmuldiv, lesson: "Multiply or divide the sizes, then decide the sign:\n\n• Same signs → positive. −3 × −4 = 12\n• Different signs → negative. −12 ÷ 3 = −4" },
-            Level { id: "powroot", title: "Exponents & Roots", make: powroot, lesson: "An exponent says how many times to multiply a number by itself.\n\n5² = 5 × 5 = 25 (\"5 squared\")\n2³ = 2 × 2 × 2 = 8 (\"2 cubed\")\n\nA square root goes backwards: √25 = 5, because 5 × 5 = 25." },
+            Level { id: "powroot", title: "Exponents & Roots", make: powroot, lesson: "An exponent says how many times to multiply a number by itself.\n\n5² = 5 × 5 = 25 (\"5 squared\")\n2³ = 2 × 2 × 2 = 8 (\"2 cubed\")\n\nA square root goes backwards:\n$\\sqrt{25}$ = 5, because 5 × 5 = 25." },
             Level { id: "pemdas", title: "PEMDAS Master", make: pemdas, lesson: "The full order of operations:\n\nP — Parentheses\nE — Exponents\nMD — Multiply & Divide, left to right\nAS — Add & Subtract, left to right\n\nCareful: (−3)² = 9, because the whole −3 is squared." },
         ],
     },
@@ -1381,12 +1431,56 @@ pub static WORLDS: &[World] = &[
             Level { id: "twostep", title: "Two-Step Equations", make: twostep, lesson: "Undo things in reverse order: first the + or −, then the × or ÷.\n\n3x + 4 = 19\n3x = 15 (subtract 4)\nx = 5 (divide by 3)\n\nCheck: 3 × 5 + 4 = 19 ✔" },
             Level { id: "bothsides", title: "x on Both Sides", make: bothsides, lesson: "Gather all the x's on one side first.\n\n5x + 2 = 3x + 10\n2x + 2 = 10 (subtract 3x)\n2x = 8\nx = 4" },
             Level { id: "evaluate", title: "Plug It In", make: evaluate, lesson: "To evaluate an expression, replace each letter with its number, then use the order of operations.\n\n3x means 3 × x. x² means x × x.\n\nIf x = −2: x² = (−2) × (−2) = 4. Always put negative numbers in parentheses!" },
-            Level { id: "proportion", title: "Proportions", make: proportion, lesson: "A proportion says two fractions are equal.\n\n2/3 = x/12: the bottom went from 3 to 12 (× 4), so the top does too: x = 2 × 4 = 8.\n\nYou can also cross-multiply: 2 × 12 = 3 × x." },
+            Level { id: "proportion", title: "Proportions", make: proportion, lesson: "A proportion says two fractions are equal.\n\n$\\frac{2}{3} = \\frac{x}{12}$\nThe bottom went from 3 to 12 (× 4), so the top does too: x = 2 × 4 = 8.\n\nYou can also cross-multiply: 2 × 12 = 3 × x." },
             Level { id: "percentword", title: "Sales & Percents", make: percentword, lesson: "Real-life percents:\n\n• Discount: find the % of the price, then subtract it.\n• Service charge or tax: find the %, then add it.\n• Score to percent: make the fraction out of 100." },
             Level { id: "pythagoras", title: "Pythagoras", make: pythagoras, lesson: "In a right triangle, the two short sides (legs) a and b and the long side c (hypotenuse) follow:\n\na² + b² = c²\n\n3² + 4² = 9 + 16 = 25 = 5², so the hypotenuse is 5." },
-            Level { id: "slope", title: "Slope of a Line", make: slope, lesson: "Slope tells how steep a line is: rise over run.\n\nslope = (y₂ − y₁) / (x₂ − x₁)\n\nFrom (1, 2) to (3, 8): (8 − 2) / (3 − 1) = 6/2 = 3.\n\nGoing down from left to right gives a negative slope." },
+            Level { id: "slope", title: "Slope of a Line", make: slope, lesson: "Slope tells how steep a line is: rise over run.\n\n$slope = \\frac{y_2 − y_1}{x_2 − x_1}$\n\nFrom (1, 2) to (3, 8):\n$\\frac{8 − 2}{3 − 1} = \\frac{6}{2}$ = 3\n\nGoing down from left to right gives a negative slope." },
             Level { id: "systems", title: "Two Equations", make: systems, lesson: "Two equations, two unknowns. Find the x and y that make both true.\n\n• Adding the equations can make one letter cancel out.\n• If both say y = …, set them equal to each other.\n\nThen put the value you found back in to get the other one." },
             Level { id: "quadratic", title: "Factoring Quadratics", make: quadratic, lesson: "To solve x² + bx + c = 0, find two numbers that multiply to c and add to b.\n\nx² + 5x + 6 = 0 → 2 and 3 (2 × 3 = 6, 2 + 3 = 5)\n(x + 2)(x + 3) = 0\nx = −2 or x = −3\n\nThere are usually two answers!" },
+        ],
+    },
+    World {
+        name: "Equation Galaxy",
+        emoji: "🌌",
+        grades: "Grades 9–11",
+        levels: &[
+            Level { id: "exponents", title: "Exponent Rules", make: advanced::exponents, lesson: "Exponents are a shortcut for repeated multiplying: x³ = x × x × x.\n\nThe rules:\n• Multiply, same base → add: x² · x³ = x⁵\n• Divide → subtract: x⁷ ÷ x³ = x⁴\n• Power of a power → multiply: (x²)³ = x⁶\n• x⁰ = 1, and a negative exponent means one over:\n$x^{-2} = \\frac{1}{x^2}$" },
+            Level { id: "radicals", title: "Square Roots & Radicals", make: advanced::radicals, lesson: "A square root undoes squaring:\n$\\sqrt{49}$ = 7, because 7² = 49.\n\nTo simplify, pull out perfect squares:\n$\\sqrt{50} = \\sqrt{25} × \\sqrt{2} = 5\\sqrt{2}$\n\nRoots multiply together:\n$\\sqrt{2} × \\sqrt{8} = \\sqrt{16}$ = 4" },
+            Level { id: "expand", title: "Expanding (FOIL)", make: advanced::expand, lesson: "To multiply two brackets, every term meets every term. FOIL helps you remember:\n\nFirst · Outer · Inner · Last\n\n(x + 2)(x + 3) = x² + 3x + 2x + 6 = x² + 5x + 6\n\nThe middle number is the sum (2 + 3); the last is the product (2 × 3)." },
+            Level { id: "quadformula", title: "The Quadratic Formula", make: advanced::quadformula, lesson: "Any equation ax² + bx + c = 0 can be solved with:\n\n$x = \\frac{−b ± \\sqrt{b^2 − 4ac}}{2a}$\n\n1. Find a, b and c.\n2. Work out b² − 4ac and its square root.\n3. Do it once with + and once with −. Two answers!" },
+            Level { id: "discriminant", title: "The Discriminant", make: advanced::discriminant, lesson: "The part under the square root, b² − 4ac, is called the discriminant. It tells you how many real solutions there are without solving:\n\n• more than 0 → 2 solutions\n• exactly 0 → 1 solution\n• less than 0 → no real solutions (you can't take the square root of a negative)" },
+            Level { id: "functions", title: "Functions", make: advanced::functions, lesson: "A function is a machine: put a number in, get one number out.\n\nf(x) = 2x + 1 → f(3) = 2 × 3 + 1 = 7\n\n• f(g(x)): do g first, then put its answer into f.\n• f⁻¹ is the undo machine: if f(3) = 7, then f⁻¹(7) = 3." },
+            Level { id: "inequalities", title: "Inequalities", make: advanced::inequalities, lesson: "An inequality says one side is bigger or smaller: <, >, ≤ (or equal), ≥ (or equal).\n\nSolve it like an equation, with one big rule:\nwhen you multiply or divide by a NEGATIVE number, flip the sign!\n\n−2x < 6 → x > −3" },
+            Level { id: "absval", title: "Absolute Value", make: advanced::absval, lesson: "|x| is the distance from 0, so it's never negative: |−5| = 5.\n\n|x − 2| = 3 means x − 2 is 3 OR −3:\nx − 2 = 3 → x = 5\nx − 2 = −3 → x = −1\n\nUsually two answers!" },
+            Level { id: "growth", title: "Growth & Interest", make: advanced::growth, lesson: "Exponential growth multiplies by the same amount each step.\n\n• Doubling: start × 2ⁿ\n• Halving (half-life): start ÷ 2ⁿ\n• Interest: money × (1 + rate) each year\n\n₱1000 at 10% for 2 years: 1000 × 1.1 × 1.1 = ₱1210" },
+            Level { id: "logs", title: "Logarithms", make: advanced::logs, lesson: "A logarithm asks: what power?\n\nlog₂ 8 = 3, because 2³ = 8.\n\nTo solve 3ˣ = 81, write 81 as a power of 3: 3⁴ = 81, so x = 4.\n\nRule: log a + log b = log(a × b)." },
+        ],
+    },
+    World {
+        name: "Triangle Island",
+        emoji: "📐",
+        grades: "Grades 8–11",
+        levels: &[
+            Level { id: "angles", title: "Angles & Polygons", make: advanced::angles, lesson: "Angle facts to remember:\n• A triangle's angles add to 180°.\n• Complementary angles add to 90°; supplementary to 180°.\n• A polygon with n sides has inside angles adding to (n − 2) × 180°.\n• In a regular polygon all angles are equal: divide the total by n." },
+            Level { id: "circles", title: "Circles", make: advanced::circles, lesson: "The radius goes from the center to the edge; the diameter goes all the way across (2 × radius).\n\n• Circumference (around) = 2πr\n• Area = πr²\n\nAnswers \"in terms of π\" keep π as π: a radius of 3 gives an area of 9π." },
+            Level { id: "volume", title: "Area & Volume", make: advanced::volume, lesson: "Volume is how much fits inside (cubic units).\n• Box: length × width × height\n• Cylinder: πr²h\n• Cone: $\\frac{1}{3}πr^2h$ (a third of a cylinder)\n• Sphere: $\\frac{4}{3}πr^3$\n\nSurface area adds up the area of every face." },
+            Level { id: "coords", title: "Distance & Midpoint", make: advanced::coords, lesson: "On a grid:\n• Distance: make a right triangle and use Pythagoras:\n$d = \\sqrt{(x_2 − x_1)^2 + (y_2 − y_1)^2}$\n• Midpoint: the average of the x's and of the y's:\n$(\\frac{x_1 + x_2}{2}, \\frac{y_1 + y_2}{2})$\n\nFrom (1, 2) to (4, 6): across 3, up 4, so the distance is 5." },
+            Level { id: "similar", title: "Similar Triangles", make: advanced::similar, lesson: "Similar shapes are the same shape at different sizes. Their sides all grow by the same scale factor.\n\nIf one side goes from 4 to 12 (× 3), every side is × 3.\n\nMatching angles stay exactly the same." },
+            Level { id: "trigratios", title: "SOH-CAH-TOA", make: advanced::trigratios, lesson: "In a right triangle, looking from angle A:\n• Opposite: the side across from A\n• Adjacent: the side next to A\n• Hypotenuse: the longest side\n\nSOH: $\\sin A = \\frac{opposite}{hypotenuse}$\nCAH: $\\cos A = \\frac{adjacent}{hypotenuse}$\nTOA: $\\tan A = \\frac{opposite}{adjacent}$" },
+            Level { id: "specialangles", title: "Special Angles & Radians", make: advanced::specialangles, lesson: "Two special right triangles give exact values:\n• 30-60-90: sides 1 : √3 : 2, so sin 30° = 1/2\n• 45-45-90: sides 1 : 1 : √2, so tan 45° = 1\n\nRadians measure angles with π: a half turn is π radians = 180°.\n$\\frac{π}{3}$ = 180° ÷ 3 = 60°" },
+            Level { id: "lawsincos", title: "Law of Sines & Cosines", make: advanced::lawsincos, lesson: "For any triangle (not just right ones):\n\nLaw of cosines, when you know two sides and the angle between them:\n$c^2 = a^2 + b^2 − 2ab \\cos C$\n\nLaw of sines, when you know an angle and its opposite side:\n$\\frac{a}{\\sin A} = \\frac{b}{\\sin B}$" },
+        ],
+    },
+    World {
+        name: "Chance Carnival",
+        emoji: "🎪",
+        grades: "Grades 7–12",
+        levels: &[
+            Level { id: "average", title: "Mean, Median, Mode & Range", make: advanced::average, lesson: "Four ways to describe a list of numbers:\n• Mean (average): add them all, divide by how many:\n$mean = \\frac{total}{how many}$\n• Median: the middle one when they're in order.\n• Mode: the one that appears most often.\n• Range: biggest − smallest." },
+            Level { id: "probability", title: "Probability", make: advanced::probability, lesson: "Probability = $\\frac{ways you want}{all the ways}$\n\nIt's always between 0 (impossible) and 1 (certain).\n\nA bag with 3 red and 7 blue:\n$P(red) = \\frac{3}{10}$\n$P(not red) = 1 − \\frac{3}{10} = \\frac{7}{10}$" },
+            Level { id: "compound", title: "\"And\" Probability", make: advanced::compound, lesson: "For two things to BOTH happen, multiply their chances.\n\nTwo coin flips, both heads:\n$\\frac{1}{2} × \\frac{1}{2} = \\frac{1}{4}$\n\nIf you don't put the first pick back, the second pick has one fewer to choose from." },
+            Level { id: "counting", title: "Counting: Arrangements & Choices", make: advanced::counting, lesson: "• Several choices in a row: multiply (3 shirts × 2 pants = 6 outfits).\n• Arranging n things in order: n! = n × (n − 1) × … × 1.\n• Permutation (order matters): 5 × 4 × 3 for top 3 out of 5.\n• Combination (order doesn't matter):\n$nCr = \\frac{n!}{r!(n − r)!}$" },
+            Level { id: "expected", title: "Expected Value", make: advanced::expected, lesson: "Expected value is the average result if you played many, many times.\n\nMultiply each result by its chance, then add them up.\n\nA spinner with ₱0, ₱0, ₱10, ₱10:\n$(0 + 0 + 10 + 10) × \\frac{1}{4}$ = ₱5 per spin" },
         ],
     },
 ];
@@ -1443,6 +1537,31 @@ mod tests {
                 assert!(p.column.is_some());
                 let last = p.hints.last().unwrap();
                 assert!(last.contains(&p.answer.show()), "{}: {:?} vs {last}", level.id, p.answer);
+            }
+        }
+    }
+
+    /// Formulas are well formed: `$` comes in pairs, and every command inside
+    /// is one math.rs draws (anything else would show up as text).
+    #[test]
+    fn formulas_are_well_formed() {
+        let check = |where_: &str, text: &str| {
+            assert_eq!(text.matches('$').count() % 2, 0, "unpaired $ in {where_}: {text}");
+            let plain = crate::math::plain(text);
+            assert!(!plain.contains('\\') && !plain.contains('{') && !plain.contains('}'), "{where_}: {text} → {plain}");
+        };
+        let mut g = StdRng::seed_from_u64(13);
+        for (_, level) in all() {
+            check(level.id, level.lesson);
+            for _ in 0..200 {
+                let p = (level.make)(&mut g);
+                check(level.id, &p.prompt);
+                for h in &p.hints {
+                    check(level.id, h);
+                }
+                for st in crate::teach::lesson(level.id, &p) {
+                    check(level.id, &st.say);
+                }
             }
         }
     }

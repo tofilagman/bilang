@@ -14,6 +14,8 @@ pub enum Answer {
     Roots(i64, i64),
     /// An ordered pair (x, y) for systems of equations.
     Pair(i64, i64),
+    /// An inequality's solution, "x < −4": one of < > ≤ ≥ and the boundary.
+    Ineq(char, i64),
 }
 
 #[derive(Debug, PartialEq)]
@@ -60,6 +62,7 @@ impl Answer {
             Answer::Remainder(..) => "Type the answer and remainder like 7 r 2",
             Answer::Roots(..) => "Type both answers like 2, -5",
             Answer::Pair(..) => "Type x then y like 3, -1",
+            Answer::Ineq(..) => "Type it like x < 4 or x >= -2",
         }
     }
 
@@ -71,6 +74,7 @@ impl Answer {
             Answer::Dec(_) => &["−", "."],
             Answer::Remainder(..) => &["r"],
             Answer::Roots(..) | Answer::Pair(..) => &["−", ","],
+            Answer::Ineq(..) => &["−", "<", ">", "="],
         }
     }
 
@@ -84,6 +88,7 @@ impl Answer {
             Answer::Remainder(q, r) => format!("{q} r {r}"),
             Answer::Roots(a, b) => format!("{}, {}", minus(a.min(b)), minus(a.max(b))),
             Answer::Pair(x, y) => format!("x = {}, y = {}", minus(x), minus(y)),
+            Answer::Ineq(op, n) => format!("x {op} {}", minus(n)),
         }
     }
 
@@ -142,6 +147,23 @@ impl Answer {
                     } else {
                         "The quotient is right! Check the remainder.".into()
                     })
+                } else {
+                    Verdict::Wrong
+                }
+            }
+            Answer::Ineq(op, n) => {
+                let Some((got, value)) = parse_ineq(&s) else { return unreadable() };
+                let value_ok = value.is_some_and(|(a, b)| a == n * b);
+                let flipped = |c: char| match c {
+                    '<' | '≤' => '>',
+                    _ => '<',
+                };
+                if value_ok && got == op {
+                    Verdict::Right
+                } else if value_ok && flipped(got) != flipped(op) {
+                    Verdict::Almost("The number is right! Check which way the sign points. Did you multiply or divide by a negative? That flips it.".into())
+                } else if value_ok {
+                    Verdict::Almost("So close! Should it include \"or equal to\"? Check < versus ≤.".into())
                 } else {
                     Verdict::Wrong
                 }
@@ -235,6 +257,30 @@ pub fn parse_rational(s: &str) -> Option<(i64, i64)> {
     Some((if neg { -n } else { n }, den))
 }
 
+/// "x < -4", "x >= 2", "< -4", "-4 > x" → the sign (as it applies to x) and the number.
+fn parse_ineq(s: &str) -> Option<(char, Option<(i64, i64)>)> {
+    let t = s.replace(' ', "").replace("<=", "≤").replace("=<", "≤").replace(">=", "≥").replace("=>", "≥");
+    let is_op = |c: char| "<>≤≥".contains(c);
+    let (op, num) = if let Some(rest) = t.strip_prefix('x') {
+        let op = rest.chars().next().filter(|&c| is_op(c))?;
+        (op, rest[op.len_utf8()..].to_string())
+    } else if let Some(front) = t.strip_suffix('x') {
+        // "-4 > x" is "x < -4"
+        let op = front.chars().last().filter(|&c| is_op(c))?;
+        let mirrored = match op {
+            '<' => '>',
+            '>' => '<',
+            '≤' => '≥',
+            _ => '≤',
+        };
+        (mirrored, front[..front.len() - op.len_utf8()].to_string())
+    } else {
+        let op = t.chars().next().filter(|&c| is_op(c))?;
+        (op, t[op.len_utf8()..].to_string())
+    };
+    Some((op, parse_rational(&num)))
+}
+
 fn parse_two(s: &str) -> Option<(i64, i64)> {
     let s = s.replace(" and ", ",").replace(';', ",");
     let parts: Vec<&str> = if s.contains(',') { s.split(',').collect() } else { s.split(' ').collect() };
@@ -279,6 +325,20 @@ mod tests {
         assert_eq!(Answer::Remainder(7, 2).check("7 r 2"), Verdict::Right);
         assert_eq!(Answer::Remainder(7, 2).check("7R2"), Verdict::Right);
         assert!(matches!(Answer::Remainder(7, 2).check("7"), Verdict::Almost(_)));
+    }
+
+    #[test]
+    fn inequalities() {
+        let a = Answer::Ineq('<', -4);
+        assert_eq!(a.show(), "x < −4");
+        assert_eq!(a.check("x < -4"), Verdict::Right);
+        assert_eq!(a.check("x<−4"), Verdict::Right);
+        assert_eq!(a.check("-4 > x"), Verdict::Right);
+        assert!(matches!(a.check("x > -4"), Verdict::Almost(_)));
+        assert!(matches!(a.check("x <= -4"), Verdict::Almost(_)));
+        assert_eq!(a.check("x < 4"), Verdict::Wrong);
+        assert_eq!(Answer::Ineq('≥', 2).check("x >= 2"), Verdict::Right);
+        assert!(matches!(a.check("-4"), Verdict::Unreadable(_)));
     }
 
     #[test]

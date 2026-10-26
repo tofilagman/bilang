@@ -1,17 +1,20 @@
 //! Bilang: a math adventure for kids. Pick your player, walk the map from
-//! counting to quadratics, and Kiko the owl cheers you on with hints that
-//! teach the method, not just the answer.
+//! counting to trigonometry and probability, and Kiko the owl cheers you on
+//! with hints that teach the method, not just the answer.
 
 // No console window behind the game on Windows (debug builds keep it for logs).
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+mod advanced;
 mod answer;
 mod column;
 mod confetti;
 mod expr;
+mod figure;
 mod history;
 mod learn;
 mod levels;
+mod math;
 mod play;
 mod scores;
 mod sound;
@@ -99,6 +102,13 @@ button.count-pick:checked { background: #ffe08a; box-shadow: 0 0 0 4px #fb8500; 
 .colgrid .carry.active { border: 2px solid #fb8500; background: #fff7e0; }
 .colgrid .digit.pointed { background: #ffe58a; border-radius: 12px; }
 .colgrid .slot.pointed, .colgrid .carry.pointed { background: #fff3c4; }
+.frac { margin: 0 4px; }
+.frac > box { padding: 0 4px; }
+separator.frac-bar { min-height: 2px; background: currentColor; margin: 3px 0; }
+.root-sign { font-size: larger; margin-right: 1px; }
+.radicand { border-top: 2px solid currentColor; padding: 1px 3px 0 3px; }
+.script { font-size: smaller; }
+.figure { font-size: 17px; font-weight: 700; }
 .colgrid separator.rule { min-height: 4px; background: #3a3a7a; }
 .stat { background: white; border-radius: 20px; padding: 14px 10px; box-shadow: 0 3px 8px alpha(black, 0.08); }
 .stat-num { font-size: 26px; font-weight: 800; color: #2d2d5a; }

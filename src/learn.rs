@@ -17,7 +17,9 @@ use crate::{
     answer::Verdict,
     column::ColumnPad,
     label,
+    figure,
     levels::Level,
+    math,
     play::key,
     sound::Cue,
     teach::{self, Step},
@@ -31,15 +33,18 @@ pub struct Learn {
     pub root: gtk::ScrolledWindow,
     counter: gtk::Label,
     mascot: gtk::Label,
-    bubble: gtk::Label,
+    bubble: gtk::Box,
     visual: gtk::Label,
-    board: gtk::Label,
+    figure: gtk::Box,
+    board: gtk::Box,
     pad_holder: gtk::Box,
     ask_row: gtk::Box,
     entry: gtk::Entry,
     next: gtk::Button,
     tip: gtk::Label,
     keys: gtk::Box,
+    /// Keys beyond digits that the current question needs ( / . , < > r ).
+    extra_keys: gtk::Box,
     rng: RefCell<StdRng>,
     steps: RefCell<Vec<Step>>,
     i: Cell<usize>,
@@ -64,23 +69,19 @@ impl Learn {
         top.append(&skip);
 
         let mascot = label("🦉", "mascot");
-        let bubble = label("", "bubble");
-        bubble.add_css_class("teach");
-        bubble.set_wrap(true);
-        bubble.set_xalign(0.0);
-        bubble.set_hexpand(true);
+        let bubble = gtk::Box::builder().hexpand(true).valign(gtk::Align::Center).css_classes(["bubble", "teach"]).build();
         let kiko = gtk::Box::builder().spacing(12).build();
         kiko.append(&mascot);
         kiko.append(&bubble);
 
         let visual = label("", "visual");
         visual.set_wrap(true);
-        let board = label("", "prompt");
-        board.set_wrap(true);
-        board.set_justify(gtk::Justification::Center);
+        let board = gtk::Box::builder().halign(gtk::Align::Center).css_classes(["prompt"]).build();
         let pad_holder = gtk::Box::builder().halign(gtk::Align::Center).build();
         let card = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(12).css_classes(["card"]).build();
+        let figure_box = gtk::Box::builder().halign(gtk::Align::Center).build();
         card.append(&visual);
+        card.append(&figure_box);
         card.append(&board);
         card.append(&pad_holder);
 
@@ -99,8 +100,10 @@ impl Learn {
             digits.attach(&b, (i % 3) as i32, (i / 3) as i32, 1, 1);
             buttons.push(b);
         }
-        let keys = gtk::Box::builder().halign(gtk::Align::Center).build();
+        let extra_keys = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(8).build();
+        let keys = gtk::Box::builder().spacing(8).halign(gtk::Align::Center).build();
         keys.append(&digits);
+        keys.append(&extra_keys);
 
         let body = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(14).margin_top(14).margin_bottom(24).margin_start(28).margin_end(28).build();
         for w in [top.upcast_ref::<gtk::Widget>(), kiko.upcast_ref(), card.upcast_ref(), ask_row.upcast_ref(), next.upcast_ref(), tip.upcast_ref(), keys.upcast_ref()] {
@@ -117,6 +120,7 @@ impl Learn {
             mascot,
             bubble,
             visual,
+            figure: figure_box,
             board,
             pad_holder,
             ask_row,
@@ -124,6 +128,7 @@ impl Learn {
             next,
             tip,
             keys,
+            extra_keys,
             rng: RefCell::new(StdRng::from_rng(&mut rand::rng())),
             steps: RefCell::default(),
             i: Cell::new(0),
@@ -199,7 +204,14 @@ impl Learn {
         *self.steps.borrow_mut() = teach::lesson(self.level.id, &p);
         self.visual.set_text(p.visual.as_deref().unwrap_or(""));
         self.visual.set_visible(p.visual.is_some());
-        self.board.set_text(&p.prompt);
+        while let Some(c) = self.figure.first_child() {
+            self.figure.remove(&c);
+        }
+        if let Some(f) = &p.figure {
+            self.figure.append(&figure::widget(f, 340, 185));
+        }
+        self.figure.set_visible(p.figure.is_some());
+        math::set(&self.board, &p.prompt, gtk::Align::Center);
         if p.prompt.chars().count() > 30 || p.column.is_some() {
             self.board.add_css_class("long");
         } else {
@@ -252,10 +264,10 @@ impl Learn {
         self.tries.set(0);
         self.counter.set_text(&format!("Step {} of {}", i + 1, steps.len()));
         let cheer = if self.cheer.replace(false) { NICE[self.rng.borrow_mut().random_range(0..NICE.len())] } else { "" };
-        self.bubble.set_text(&format!("{cheer}{}", st.say));
+        math::set(&self.bubble, &format!("{cheer}{}", st.say), gtk::Align::Start);
         self.mascot.set_text(if last { "🥳" } else { "🦉" });
         if let Some(b) = &st.board {
-            self.board.set_text(b);
+            math::set(&self.board, b, gtk::Align::Center);
         }
         if let Some(pad) = self.pad.borrow().as_ref() {
             pad.point(st.point);
@@ -265,6 +277,19 @@ impl Learn {
         self.next.set_visible(st.ask.is_none() && st.write.is_none());
         self.next.set_label(if last { "Let's practice! ➜" } else { "Next ➜" });
         self.keys.set_visible(st.ask.is_some() || st.write.is_some());
+        while let Some(c) = self.extra_keys.first_child() {
+            self.extra_keys.remove(&c);
+        }
+        for k in st.ask.as_ref().map(|a| a.keys()).unwrap_or(&[]).iter().filter(|k| **k != "−") {
+            let b = key(k, true);
+            let me = Rc::downgrade(self);
+            b.connect_clicked(move |b| {
+                if let Some(me) = me.upgrade() {
+                    me.press(&b.label().unwrap_or_default());
+                }
+            });
+            self.extra_keys.append(&b);
+        }
         self.tip.set_text(match (&st.ask, st.write) {
             (Some(_), _) => "Type your answer, then press Check.",
             (_, Some(_)) => "Type the digit in the glowing box ✨",
@@ -299,10 +324,13 @@ impl Learn {
         }
         self.app.cue(Cue::Tap);
         let mut t = self.entry.text().to_string();
-        if k == "⌫" {
-            t.pop();
-        } else {
-            t.push_str(k);
+        match k {
+            "⌫" => {
+                t.pop();
+            }
+            "r" => t.push_str(" r "),
+            "," => t.push_str(", "),
+            _ => t.push_str(k),
         }
         self.entry.set_text(&t);
         self.entry.set_position(-1);
@@ -361,7 +389,7 @@ impl Learn {
 
     fn say(&self, face: &str, text: &str) {
         self.mascot.set_text(face);
-        self.bubble.set_text(text);
+        math::set(&self.bubble, text, gtk::Align::Start);
     }
 
     fn advance(self: &Rc<Self>) {

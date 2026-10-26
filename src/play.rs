@@ -19,7 +19,9 @@ use crate::{
     confetti::Confetti,
     history::{self, Missed, Run},
     label,
+    figure,
     learn::Learn,
+    math,
     levels::{self, Level, Problem},
     sound::Cue,
     star_text,
@@ -73,7 +75,10 @@ struct Play {
     bubble: gtk::Label,
     card: gtk::Box,
     visual: gtk::Label,
-    prompt: gtk::Label,
+    /// Triangle or unit-circle diagram, when the problem has one.
+    figure: gtk::Box,
+    /// The question, drawn with real fractions and roots (see math.rs).
+    prompt: gtk::Box,
     entry: gtk::Entry,
     row: gtk::Box,
     col_holder: gtk::Box,
@@ -131,12 +136,12 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
     let visual = label("", "visual");
     visual.set_wrap(true);
     visual.set_justify(gtk::Justification::Center);
-    let prompt = label("", "prompt");
-    prompt.set_wrap(true);
-    prompt.set_justify(gtk::Justification::Center);
+    let prompt = gtk::Box::builder().halign(gtk::Align::Center).css_classes(["prompt"]).build();
     let card = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(14).css_classes(["card"]).build();
     let col_holder = gtk::Box::builder().halign(gtk::Align::Center).build();
+    let figure_box = gtk::Box::builder().halign(gtk::Align::Center).build();
     card.append(&visual);
+    card.append(&figure_box);
     card.append(&prompt);
     card.append(&col_holder);
 
@@ -241,9 +246,8 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
     overlay.add_overlay(&confetti.area);
 
     // ── Help panel
-    let lesson = label(level.lesson, "lesson");
-    lesson.set_wrap(true);
-    lesson.set_xalign(0.0);
+    let lesson = math::rich(level.lesson, gtk::Align::Start);
+    lesson.add_css_class("lesson");
     let hints = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(10).build();
     let hint_btn = gtk::Button::builder().label("💡 Show a hint").css_classes(["soft"]).build();
     let side = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(12).margin_top(18).margin_bottom(18).margin_start(18).margin_end(18).build();
@@ -251,6 +255,9 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
     t1.set_xalign(0.0);
     side.append(&t1);
     side.append(&lesson);
+    if let Some(f) = figure::for_lesson(level.id) {
+        side.append(&figure::widget(&f, 280, 170));
+    }
     side.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     let t2 = label("💡 Hints for this one", "side-title");
     t2.set_xalign(0.0);
@@ -309,6 +316,7 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
         bubble,
         card,
         visual,
+        figure: figure_box,
         prompt,
         entry,
         row,
@@ -575,7 +583,14 @@ impl Play {
 
         self.visual.set_text(p.visual.as_deref().unwrap_or(""));
         self.visual.set_visible(p.visual.is_some());
-        self.prompt.set_text(&p.prompt);
+        while let Some(c) = self.figure.first_child() {
+            self.figure.remove(&c);
+        }
+        if let Some(f) = &p.figure {
+            self.figure.append(&figure::widget(f, 340, 185));
+        }
+        self.figure.set_visible(p.figure.is_some());
+        math::set(&self.prompt, &p.prompt, gtk::Align::Center);
         if p.prompt.chars().count() > 34 || p.column.is_some() {
             self.prompt.add_css_class("long");
         } else {
@@ -658,9 +673,8 @@ impl Play {
             return;
         }
         let last = i + 1 == p.hints.len();
-        let h = label(&p.hints[i], "hint");
-        h.set_wrap(true);
-        h.set_xalign(0.0);
+        let h = math::rich(&p.hints[i], gtk::Align::Start);
+        h.add_css_class("hint");
         if last {
             h.add_css_class("last");
         }

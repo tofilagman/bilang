@@ -32,6 +32,22 @@ pub fn sup(n: i64) -> String {
     s
 }
 
+/// Superscript form of a short exponent like "2", "-3" or "n", if every
+/// character has one.
+pub fn superscript(s: &str) -> Option<String> {
+    const D: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    s.chars()
+        .map(|c| match c {
+            '0'..='9' => Some(D[c.to_digit(10)? as usize]),
+            '-' | '−' => Some('⁻'),
+            '+' => Some('⁺'),
+            'n' => Some('ⁿ'),
+            'x' => Some('ˣ'),
+            _ => None,
+        })
+        .collect()
+}
+
 /// A number as it sits inside an expression: negatives get parentheses
 /// unless they lead the expression or a group.
 fn num(n: i64, wrap: bool) -> String {
