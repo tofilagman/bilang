@@ -88,6 +88,11 @@ impl Store {
         store
     }
 
+    /// The folder players.json lives in; history files sit beside it.
+    pub fn dir(&self) -> &std::path::Path {
+        self.path.parent().unwrap_or(std::path::Path::new("."))
+    }
+
     pub fn save(&self) {
         if let Some(dir) = self.path.parent() {
             let _ = std::fs::create_dir_all(dir);

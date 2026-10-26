@@ -19,6 +19,24 @@ pub struct Problem {
     pub expr: Option<Vec<Tok>>,
 }
 
+impl Problem {
+    /// The question on one line, for the score sheet ("345 + 278", "814 ÷ 7").
+    pub fn describe(&self) -> String {
+        match self.column {
+            Some(c) => {
+                let op = match c.op {
+                    ColOp::Add => "+",
+                    ColOp::Sub => "−",
+                    ColOp::Mul => "×",
+                    ColOp::Div => "÷",
+                };
+                format!("{} {op} {}", c.top, c.bottom)
+            }
+            None => self.prompt.replace('\n', " ").trim_end_matches(" = ?").to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ColOp {
     Add,

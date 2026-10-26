@@ -6,9 +6,11 @@ mod answer;
 mod column;
 mod confetti;
 mod expr;
+mod history;
 mod learn;
 mod levels;
 mod play;
+mod scores;
 mod sound;
 mod store;
 mod teach;
@@ -95,6 +97,14 @@ button.count-pick:checked { background: #ffe08a; box-shadow: 0 0 0 4px #fb8500; 
 .colgrid .digit.pointed { background: #ffe58a; border-radius: 12px; }
 .colgrid .slot.pointed, .colgrid .carry.pointed { background: #fff3c4; }
 .colgrid separator.rule { min-height: 4px; background: #3a3a7a; }
+.stat { background: white; border-radius: 20px; padding: 14px 10px; box-shadow: 0 3px 8px alpha(black, 0.08); }
+.stat-num { font-size: 26px; font-weight: 800; color: #2d2d5a; }
+.stat-cap { font-size: 14px; color: #5a5a8a; }
+.stat-cap.today { font-weight: 800; color: #2d2d5a; }
+.week { background: white; border-radius: 20px; padding: 18px 22px 12px 22px; box-shadow: 0 3px 8px alpha(black, 0.08); }
+.week .bar { background: #3f7fe0; border-radius: 4px 4px 0 0; }
+.week .bar-empty { background: alpha(#3a3a7a, 0.15); border-radius: 2px; }
+.sheet list.boxed-list row { color: #2d2d5a; font-size: 16px; }
 button.pick { font-size: 34px; border-radius: 16px; min-width: 56px; min-height: 56px; }
 button.pick:checked { background: #ffe08a; }
 "#;
@@ -178,6 +188,16 @@ fn players_page(app: &Rc<App>) -> adw::NavigationPage {
     let tv = adw::ToolbarView::new();
     let header = adw::HeaderBar::new();
     header.pack_end(&app.sound_button());
+    let sheets = gtk::Button::builder().label("📊 Score sheets").tooltip_text("For grown-ups: see each child's progress").build();
+    {
+        let app = app.clone();
+        sheets.connect_clicked(move |_| {
+            if !app.store.borrow().profiles.is_empty() {
+                app.nav.push(&scores::page(&app, 0));
+            }
+        });
+    }
+    header.pack_start(&sheets);
     tv.add_top_bar(&header);
     tv.set_content(Some(&scroll));
     tv.add_css_class("bg");
@@ -396,9 +416,19 @@ fn grown_up_menu(app: &Rc<App>) -> gtk::MenuButton {
         });
     }
     v.append(&unlock);
+    let sheet = gtk::Button::builder().label("📊 Score sheet").build();
+    v.append(&sheet);
     let delete = gtk::Button::builder().label("Delete this player…").css_classes(["destructive-action"]).build();
     v.append(&delete);
     let pop = gtk::Popover::builder().child(&v).build();
+    {
+        let app = app.clone();
+        let pop = pop.clone();
+        sheet.connect_clicked(move |_| {
+            pop.popdown();
+            app.nav.push(&scores::page(&app, app.player.get()));
+        });
+    }
     {
         let app = app.clone();
         let pop = pop.clone();
@@ -414,7 +444,8 @@ fn grown_up_menu(app: &Rc<App>) -> gtk::MenuButton {
                 if r == "delete" {
                     {
                         let mut s = app2.store.borrow_mut();
-                        s.profiles.remove(app2.player.get());
+                        let gone = s.profiles.remove(app2.player.get());
+                        history::forget(s.dir(), gone.id);
                         s.save();
                     }
                     app2.player.set(0);
@@ -453,6 +484,12 @@ fn main() -> glib::ExitCode {
             app.player.set(p);
             nav.push(&map_page(&app));
             nav.push(&play::page(&app, l));
+        }
+        // BILANG_SHEET=<player index> opens that child's score sheet, for testing.
+        if let Some(p) = std::env::var("BILANG_SHEET").ok().and_then(|s| s.parse::<usize>().ok())
+            && p < app.store.borrow().profiles.len()
+        {
+            nav.push(&scores::page(&app, p));
         }
         win.present();
     });

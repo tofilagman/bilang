@@ -5,6 +5,7 @@
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
+    time::Instant,
 };
 
 use adw::prelude::*;
@@ -16,6 +17,7 @@ use crate::{
     answer::Verdict,
     column::ColumnPad,
     confetti::Confetti,
+    history::{self, Missed, Run},
     label,
     learn::Learn,
     levels::{self, Level, Problem},
@@ -55,6 +57,13 @@ struct Play {
     best_streak: Cell<u32>,
     /// Answered right; Enter or Next moves on.
     solved: Cell<bool>,
+    /// For the score sheet: when this run (or lesson) started, unset once saved.
+    run_at: Cell<Option<(i64, Instant)>>,
+    run_hints: Cell<u32>,
+    run_wrong: Cell<u32>,
+    /// What the kid typed on the current question before getting it.
+    tries: RefCell<Vec<String>>,
+    needed_help: RefCell<Vec<Missed>>,
 
     stack: gtk::Stack,
     progress: gtk::ProgressBar,
@@ -287,6 +296,11 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
         streak: Cell::new(0),
         best_streak: Cell::new(0),
         solved: Cell::new(false),
+        run_at: Cell::new(None),
+        run_hints: Cell::new(0),
+        run_wrong: Cell::new(0),
+        tries: RefCell::default(),
+        needed_help: RefCell::default(),
         stack,
         progress,
         count,
@@ -342,6 +356,7 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
         play.learn.connect_done(move || {
             if let Some(p) = p.upgrade() {
                 p.mark_learned();
+                p.record(true, 0, true);
                 p.chosen.set(10);
                 p.begin();
             }
@@ -379,6 +394,15 @@ pub fn page(app: &Rc<App>, flat: usize) -> adw::NavigationPage {
             let next = p.flat + 1;
             app.nav.pop_to_tag("map");
             app.nav.push(&page(&app, next));
+        });
+    }
+    {
+        // Leaving in the middle still counts on the score sheet.
+        let p = play.clone();
+        nav_page.connect_hidden(move |_| {
+            if p.stack.visible_child_name().as_deref() == Some("game") && p.answered() > 0 {
+                p.record(false, 0, false);
+            }
         });
     }
     {
@@ -460,6 +484,7 @@ impl Play {
         self.hint_btn.set_sensitive(false);
         self.hint_btn.set_label("💡 Hints come during practice");
         self.stack.set_visible_child_name("learn");
+        self.run_at.set(Some((now(), Instant::now())));
         self.learn.start();
     }
 
@@ -477,9 +502,41 @@ impl Play {
         self.clean.set(0);
         self.streak.set(0);
         self.best_streak.set(0);
+        self.run_at.set(Some((now(), Instant::now())));
+        self.run_hints.set(0);
+        self.run_wrong.set(0);
+        self.needed_help.borrow_mut().clear();
         self.app.cue(Cue::Tap);
         self.stack.set_visible_child_name("game");
         self.next_question();
+    }
+
+    /// Save this run (or lesson) to the score sheet, once.
+    fn record(&self, finished: bool, stars: u8, lesson: bool) {
+        let Some((at, started)) = self.run_at.take() else { return };
+        let (dir, id) = {
+            let s = self.app.store.borrow();
+            (s.dir().to_path_buf(), s.profiles[self.app.player.get()].id)
+        };
+        let answered = if lesson { 0 } else { self.answered() as u32 };
+        history::append(
+            &dir,
+            id,
+            Run {
+                level: self.level.id.to_string(),
+                at,
+                seconds: started.elapsed().as_secs() as u32,
+                lesson,
+                total: if lesson { 0 } else { self.total.get() as u32 },
+                answered,
+                first_try: if lesson { 0 } else { self.clean.get() as u32 },
+                hints: self.run_hints.get(),
+                wrong: self.run_wrong.get(),
+                stars,
+                finished,
+                missed: if lesson { Vec::new() } else { self.needed_help.take() },
+            },
+        );
     }
 
     fn focus_input(&self) {
@@ -562,6 +619,7 @@ impl Play {
         }
 
         clear(&self.hints);
+        self.tries.borrow_mut().clear();
         self.hints_shown.set(0);
         self.missed.set(false);
         self.solved.set(false);
@@ -605,6 +663,7 @@ impl Play {
         }
         self.hints.append(&h);
         self.hints_shown.set(i + 1);
+        self.run_hints.set(self.run_hints.get() + 1);
         if last {
             self.hint_btn.set_label("That's every step!");
             self.hint_btn.set_sensitive(false);
@@ -652,6 +711,14 @@ impl Play {
                 self.card.add_css_class("right");
                 if !self.missed.get() && self.hints_shown.get() <= 1 {
                     self.clean.set(self.clean.get() + 1);
+                } else {
+                    let p = self.problem.borrow();
+                    self.needed_help.borrow_mut().push(Missed {
+                        question: p.describe(),
+                        answer: p.answer.show(),
+                        tries: self.tries.take(),
+                        hints: self.hints_shown.get() as u32,
+                    });
                 }
                 let s = if self.missed.get() { 0 } else { self.streak.get() + 1 };
                 self.streak.set(s);
@@ -673,6 +740,7 @@ impl Play {
                 self.focus_input();
             }
             Verdict::Almost(msg) => {
+                self.tries.borrow_mut().push(text.clone());
                 self.app.cue(Cue::Almost);
                 self.say("🤩", &msg);
                 self.focus_input();
@@ -682,6 +750,8 @@ impl Play {
                 self.focus_input();
             }
             Verdict::Wrong => {
+                self.tries.borrow_mut().push(text.clone());
+                self.run_wrong.set(self.run_wrong.get() + 1);
                 self.missed.set(true);
                 self.streak.set(0);
                 self.streak_label.set_text("");
@@ -748,6 +818,7 @@ impl Play {
             s.save();
             new_medal
         };
+        self.record(answered >= total, stars, false);
         self.done_stars.set_text(&star_text(stars));
         self.done_msg.set_text(match (new_medal, stars) {
             (Some(100), _) => "MARATHON TROPHY! 🏆 100 questions with 3 stars. Amazing!",
@@ -769,4 +840,8 @@ impl Play {
         let c = self.confetti.clone();
         glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || c.burst(120));
     }
+}
+
+fn now() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }

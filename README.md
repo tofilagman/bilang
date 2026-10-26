@@ -27,6 +27,18 @@ the digit. Order-of-operations lessons shrink the expression on the board one st
 a time. Two misses on a step and Kiko just says the answer and moves on. The lesson
 ends in a 10-question practice round, and "📖 Show me how" replays it any time.
 
+**📊 Score sheet for grown-ups.** "📊 Score sheets" on the player screen (or ☰ on a
+child's map) shows each child's progress:
+- Totals: stars, levels finished, questions, % right on the first try, practice time, best streak.
+- This week's questions per day, as a bar chart (hover a bar for its numbers).
+- Levels "worth practicing together", flagged when recent sessions are below 70% right on the first try.
+- Every level played, with stars, medals, times played and accuracy.
+- Recent sessions. Expand one to see each question the child needed help with, what they
+  typed first and how many hints they used.
+
+"Export CSV" saves every session as a spreadsheet. Sessions are stored per child in
+`history/<id>.json` next to `players.json` (the last 1000 are kept).
+
 Column City problems are written the way they're taught on paper. Kids fill in the
 answer box by box, from the ones place (or left to right above the long-division
 bracket), and can jot carries in the small boxes. Checking turns each digit green or red.
@@ -50,7 +62,7 @@ cargo run --release
 
 Players are saved in the app data folder (`~/Library/Application Support/io.r3al.Bilang/players.json`
 on a Mac). Test hooks: `BILANG_DATA=<dir>` uses another folder, `BILANG_START=<player>:<level>`
-opens a level directly, and `BILANG_DEBUG=1` logs each answer to stderr.
+opens a level directly, and `BILANG_DEBUG=1` logs each answer to stderr, and `BILANG_SHEET=<player>` opens that child's score sheet.
 
 `cargo test` checks every level's generator 300 times and walks every stacked lesson to make sure it writes the right answer. `cargo test samples -- --ignored --nocapture`
 prints one problem with its hints from every level, for proofreading; `cargo test lesson_samples -- --ignored --nocapture` does the same for lessons. With `BILANG_DEBUG=1`, lessons log `learn: ask/write/next` for each step.
