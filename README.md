@@ -142,8 +142,7 @@ Get the latest version from the **[Releases page](https://github.com/tofilagman/
 |---|---|
 | **Windows** (64-bit) | `Bilang-…-windows-x64-setup.exe`, or the portable `.zip` |
 | **Mac** (Apple silicon: M1 or newer) | `Bilang-…-mac-arm64.dmg` |
-| **Ubuntu 24.04+ / Debian 13+** | `Bilang-…-linux-amd64.deb` |
-| **Any Linux** | `Bilang-…-linux-x86_64.flatpak` |
+| **Linux** | `Bilang-…-linux-x86_64.flatpak` |
 | **Android tablet** (Android 7 or newer) | `Bilang-…-android.apk` |
 
 Bilang isn't signed by Apple or Microsoft yet, so the first time you open it your
@@ -151,7 +150,6 @@ computer asks to make sure:
 
 - **Windows:** if you see "Windows protected your PC", click **More info → Run anyway**.
 - **Mac:** drag Bilang into Applications, then **right-click Bilang → Open → Open**.
-- **Ubuntu:** `sudo apt install ./Bilang-*-linux-amd64.deb`
 - **Flatpak:** `flatpak install --user Bilang-*.flatpak`
 - **Android:** open the `.apk` on the tablet. When it asks, allow your browser or Files
   app to **install unknown apps**.
@@ -279,7 +277,6 @@ packaging/      app icon, Mac/Windows/Linux installers
   as artifacts without publishing. The packaging scripts:
   - `packaging/macos/bundle.sh` makes a self-contained `.app` and `.dmg`.
   - `packaging/windows/package.sh` (in the MSYS2 UCRT64 shell) makes the installer and zip.
-  - `cargo deb` makes the `.deb`.
   - `packaging/linux/io.r3al.bilang.yml` is the Flatpak manifest.
   - The Android `.apk` is signed with the key in the `ANDROID_KEYSTORE` (base64),
     `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`
