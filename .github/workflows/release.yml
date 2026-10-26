@@ -143,10 +143,56 @@ jobs:
           name: flatpak
           path: dist/*.flatpak
 
+  android:
+    name: Android tablet APK
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+      # Android only installs an update signed with the same key as the app
+      # already on the tablet, so releases need the real key from the secrets
+      - name: Set up the signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > android/upload.jks
+            printf 'storeFile=upload.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+          else
+            echo "::warning::No ANDROID_KEYSTORE secret, so the APK is signed with a throwaway debug key and can't update an earlier install"
+          fi
+      - name: Build the APK
+        run: |
+          flutter build apk --release --build-name=${{ needs.version.outputs.version }} --build-number=${{ github.run_number }}
+          mkdir -p ../dist
+          cp build/app/outputs/flutter-apk/app-release.apk "../dist/Bilang-${{ needs.version.outputs.version }}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*.apk
+
   release:
     name: Publish the release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [version, mac, windows, deb, flatpak]
+    needs: [version, mac, windows, deb, flatpak, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -168,9 +214,11 @@ jobs:
             | **Mac** (Apple silicon: M1 or newer) | `Bilang-${{ needs.version.outputs.version }}-mac-arm64.dmg` |
             | **Ubuntu 24.04+ / Debian 13+** | `Bilang-${{ needs.version.outputs.version }}-linux-amd64.deb` |
             | **Any Linux** (Flatpak) | `Bilang-${{ needs.version.outputs.version }}-linux-x86_64.flatpak` |
+            | **Android tablet** (Android 7+) | `Bilang-${{ needs.version.outputs.version }}-android.apk` |
 
             **First launch:** Bilang isn't signed by Apple or Microsoft yet, so your computer will ask before opening it once.
             - **Windows:** if SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
             - **Mac:** drag Bilang to Applications, then **right-click (or Control-click) Bilang → Open → Open**.
             - **Ubuntu:** `sudo apt install ./Bilang-*-linux-amd64.deb`
             - **Flatpak:** `flatpak install --user Bilang-*.flatpak` (the GNOME runtime comes from Flathub).
+            - **Android:** open the `.apk` on the tablet and allow your browser or Files app to **install unknown apps** when asked.

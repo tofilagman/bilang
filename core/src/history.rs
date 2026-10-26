@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
-use gtk::glib;
+use chrono::{Datelike, Local, TimeZone};
 
 /// Oldest runs are dropped past this, so the file stays small.
 const KEEP: usize = 1000;
@@ -136,29 +136,29 @@ pub fn per_level(runs: &[Run]) -> BTreeMap<String, LevelStats> {
 
 /// The local calendar day of a time, as (year, month, day).
 pub fn day_of(at: i64) -> Option<(i32, i32, i32)> {
-    glib::DateTime::from_unix_local(at).ok().map(|d| d.ymd())
+    let d = Local.timestamp_opt(at, 0).single()?;
+    Some((d.year(), d.month() as i32, d.day() as i32))
 }
 
 /// Questions answered and seconds practiced on each of the last `days` local
 /// days, oldest first, with each day's start time.
 pub fn by_day(runs: &[Run], now: i64, days: u32) -> Vec<(i64, u32, u32)> {
-    let Ok(today) = glib::DateTime::from_unix_local(now) else { return Vec::new() };
-    let (y, m, d) = today.ymd();
-    let Ok(midnight) = glib::DateTime::from_local(y, m, d, 0, 0, 0.0) else { return Vec::new() };
-    (0..days as i32)
+    let Some(today) = Local.timestamp_opt(now, 0).single() else { return Vec::new() };
+    (0..days as i64)
         .rev()
         .filter_map(|back| {
-            let start = midnight.add_days(-back).ok()?;
-            let key = start.ymd();
+            let day = today.date_naive() - chrono::Days::new(back as u64);
+            let start = Local.from_local_datetime(&day.and_hms_opt(0, 0, 0)?).earliest()?;
+            let key = (day.year(), day.month() as i32, day.day() as i32);
             let (q, s) = runs.iter().filter(|r| day_of(r.at) == Some(key)).fold((0, 0), |(q, s), r| (q + r.answered, s + r.seconds));
-            Some((start.to_unix(), q, s))
+            Some((start.timestamp(), q, s))
         })
         .collect()
 }
 
-/// A local date/time. GLib pads %e and %l with (figure) spaces, so whitespace is collapsed.
+/// A local date/time in strftime style. %e and %l pad with spaces, so whitespace is collapsed.
 pub fn when(at: i64, fmt: &str) -> String {
-    glib::DateTime::from_unix_local(at).ok().and_then(|d| d.format(fmt).ok()).map(|s| s.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default()
+    Local.timestamp_opt(at, 0).single().map(|d| d.format(fmt).to_string().split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default()
 }
 
 pub fn duration(seconds: u32) -> String {
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn days_add_up() {
-        let now = glib::DateTime::now_local().unwrap().to_unix();
+        let now = Local::now().timestamp();
         let days = by_day(&[run("a", now, 7, 7), run("a", now - 1, 3, 3), run("a", now - 9 * 86400, 50, 50)], now, 7);
         assert_eq!(days.len(), 7);
         assert_eq!(days[6].1, 10);

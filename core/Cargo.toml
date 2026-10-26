@@ -1,0 +1,12 @@
+[package]
+name = "bilang-core"
+version = "0.1.1"
+edition = "2024"
+description = "Bilang's engine: levels, hints, lessons, answer checking and progress, shared by the desktop and tablet apps"
+license = "MIT"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rand = "0.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

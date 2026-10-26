@@ -34,6 +34,15 @@ pub struct Profile {
     pub scratchpad: String,
 }
 
+/// 3 stars for 90%+ right on the first try, 2 for 60%+, 1 for finishing.
+pub fn stars_for(first_try: u32, answered: u32) -> u8 {
+    match first_try * 100 / answered.max(1) {
+        90.. => 3,
+        60.. => 2,
+        _ => 1,
+    }
+}
+
 fn auto() -> String {
     "auto".into()
 }
@@ -67,6 +76,24 @@ impl Profile {
         }
     }
 
+    /// Score a finished (or stopped) practice run and keep the best of it:
+    /// stars, the questions count, the best streak, and a medal for a long
+    /// run done with 3 stars. Returns the stars and any new medal.
+    pub fn apply_run(&mut self, level: &str, answered: u32, total: u32, first_try: u32, best_streak: u32) -> (u8, Option<u32>) {
+        let answered = answered.max(1);
+        let stars = stars_for(first_try, answered);
+        let medal = (answered >= total && total >= 50 && stars == 3).then_some(total);
+        let best = self.stars(level).max(stars);
+        self.stars.insert(level.to_string(), best);
+        self.solved += answered;
+        self.best_streak = self.best_streak.max(best_streak);
+        let new_medal = medal.filter(|&m| m > self.medal(level));
+        if let Some(m) = new_medal {
+            self.medals.insert(level.to_string(), m);
+        }
+        (stars, new_medal)
+    }
+
     pub fn total_stars(&self) -> u32 {
         self.stars.values().map(|&s| s as u32).sum()
     }
@@ -91,11 +118,8 @@ fn yes() -> bool {
 }
 
 impl Store {
-    /// $BILANG_DATA overrides the folder, for testing.
-    pub fn load() -> Self {
-        let dir = std::env::var_os("BILANG_DATA").map(PathBuf::from).unwrap_or_else(|| {
-            directories::ProjectDirs::from("io", "r3al", "Bilang").map(|d| d.data_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("."))
-        });
+    /// The players saved in `dir` (each app picks its own data folder).
+    pub fn load_dir(dir: &std::path::Path) -> Self {
         let path = dir.join("players.json");
         let mut store: Store = std::fs::read(&path)
             .ok()

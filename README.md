@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tofilagman/bilang/actions/workflows/ci.yml/badge.svg)](https://github.com/tofilagman/bilang/actions/workflows/ci.yml)
 
-**Bilang** (Filipino for *count*) is a free desktop game that teaches children math,
+**Bilang** (Filipino for *count*) is a free game for computers and Android tablets that teaches children math,
 from counting apples all the way to high school algebra, trigonometry and probability.
 **Kiko the owl** guides each
 child through it. Kiko cheers them on, teaches every new skill step by step the way a
@@ -138,12 +138,13 @@ Ten worlds and 74 levels, from Grade 1 through high school:
 
 Get the latest version from the **[Releases page](https://github.com/tofilagman/bilang/releases/latest)**:
 
-| Computer | Download |
+| Device | Download |
 |---|---|
 | **Windows** (64-bit) | `Bilang-…-windows-x64-setup.exe`, or the portable `.zip` |
 | **Mac** (Apple silicon: M1 or newer) | `Bilang-…-mac-arm64.dmg` |
 | **Ubuntu 24.04+ / Debian 13+** | `Bilang-…-linux-amd64.deb` |
 | **Any Linux** | `Bilang-…-linux-x86_64.flatpak` |
+| **Android tablet** (Android 7 or newer) | `Bilang-…-android.apk` |
 
 Bilang isn't signed by Apple or Microsoft yet, so the first time you open it your
 computer asks to make sure:
@@ -152,6 +153,18 @@ computer asks to make sure:
 - **Mac:** drag Bilang into Applications, then **right-click Bilang → Open → Open**.
 - **Ubuntu:** `sudo apt install ./Bilang-*-linux-amd64.deb`
 - **Flatpak:** `flatpak install --user Bilang-*.flatpak`
+- **Android:** open the `.apk` on the tablet. When it asks, allow your browser or Files
+  app to **install unknown apps**.
+
+### On a tablet
+
+The Android app is the same game, made for touch: a big number pad sits beside the
+problem, carries go straight into the stacked pad's little boxes, and the scratchpad
+takes a finger or a stylus. In portrait, Kiko's help slides in from the side.
+
+<p align="center">
+  <img src="docs/screenshots/tablet.png" alt="Long division on an Android tablet, with the number pad beside the problem" width="820">
+</p>
 
 ## Building from source
 
@@ -192,9 +205,25 @@ cd bilang
 cargo run --release
 ```
 
-> Every change is built and tested automatically on Linux, macOS and Windows (see the
-> CI badge above). So far the game itself has been played on macOS, so reports from
-> Linux and Windows players are very welcome!
+> Every change is built and tested automatically on Linux, macOS, Windows and Android
+> (see the CI badge above). So far the game itself has been played on macOS and an
+> Android tablet emulator, so reports from Linux, Windows and real tablets are very
+> welcome!
+
+### The Android tablet app
+
+The tablet app lives in `tablet/`. It's a [Flutter](https://flutter.dev) app that runs
+the same Rust engine through [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/).
+You need Flutter, Rust, and Android Studio's SDK with the NDK installed. Then:
+
+```bash
+cd tablet
+flutter run                 # on a connected tablet or emulator
+flutter build apk --release
+```
+
+The first build also compiles the Rust engine for each Android CPU type, so it takes
+a few minutes.
 
 ### Where progress is saved
 
@@ -203,6 +232,7 @@ Everything stays on your computer:
 - macOS: `~/Library/Application Support/io.r3al.Bilang/`
 - Linux: `~/.local/share/bilang/`
 - Windows: `%APPDATA%\r3al\Bilang\data\`
+- Android: the app's private storage (removed if the app is uninstalled)
 
 `players.json` holds the children and their stars. `history/<id>.json` holds each
 child's sessions for the score sheet (the last 1,000 are kept). Bilang never sends
@@ -213,25 +243,36 @@ anything over the internet.
 ## For developers
 
 ```
-src/
-  levels.rs   the worlds, levels and problem generators (with hints)
-  advanced.rs the high school levels (Algebra II, geometry & trig, statistics)
-  answer.rs   reading and checking answers, "almost" feedback
-  expr.rs     order-of-operations solver that explains each step
-  teach.rs    the "Show me how" lesson scripts
-  learn.rs    the lesson screen
-  column.rs   the stacked ("two-layer") answer pad
-  math.rs     draws formulas (fractions, roots, exponents) written as $…$
-  figure.rs   labeled triangle and unit-circle diagrams
-  play.rs     a level: question picker, play, results
-  history.rs  session recording, stats, CSV export
-  scores.rs   the parents' score sheet
-  main.rs     players, map, styles
-packaging/    app icon, Mac/Windows/Linux installers
+core/src/       the engine, shared by the desktop and tablet apps (no GUI)
+  levels.rs     the worlds, levels and problem generators (with hints)
+  advanced.rs   the high school levels (Algebra II, geometry & trig, statistics)
+  answer.rs     reading and checking answers, "almost" feedback
+  expr.rs       order-of-operations solver that explains each step
+  teach.rs      the "Show me how" lesson scripts
+  mathtext.rs   reads formulas written as $…$ (fractions, roots, exponents)
+  figure.rs     what the triangle and unit-circle diagrams show
+  calc.rs       the scratchpad's calculator
+  store.rs      players, stars and settings
+  history.rs    session recording, stats, CSV export
+src/            the desktop app (GTK 4 / libadwaita)
+  learn.rs      the lesson screen
+  column.rs     the stacked ("two-layer") answer pad
+  math.rs       draws formulas
+  figure.rs     draws the diagrams
+  scratch.rs    the scratchpad: formula pad and scribble
+  play.rs       a level: question picker, play, results
+  scores.rs     the parents' score sheet
+  main.rs       players, map, styles
+tablet/         the Android tablet app (Flutter)
+  rust/src/api/bilang.rs  the bridge from Dart to core/
+  lib/screens/  players, map, level, score sheet
+  lib/widgets/  number pad, stacked pad, formulas, diagrams, scratchpad
+packaging/      app icon, Mac/Windows/Linux installers
 ```
 
 - CI (`.github/workflows/ci.yml`) builds and runs the tests on Ubuntu 24.04, macOS
-  (Homebrew) and Windows (MSYS2 UCRT64) for every push and pull request.
+  (Homebrew) and Windows (MSYS2 UCRT64), and checks and builds the tablet app, for
+  every push and pull request.
 - Releases (`.github/workflows/release.yml`): push a tag matching the Cargo.toml
   version (`git tag v0.1.0 && git push origin v0.1.0`) and CI builds the installers
   from `packaging/` and publishes them. Running the workflow by hand builds them
@@ -240,6 +281,10 @@ packaging/    app icon, Mac/Windows/Linux installers
   - `packaging/windows/package.sh` (in the MSYS2 UCRT64 shell) makes the installer and zip.
   - `cargo deb` makes the `.deb`.
   - `packaging/linux/io.r3al.bilang.yml` is the Flatpak manifest.
+  - The Android `.apk` is signed with the key in the `ANDROID_KEYSTORE` (base64),
+    `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`
+    repository secrets. Keep that key safe: tablets only accept updates signed with
+    the same key.
 - `cargo test` checks:
   - every level's generator, 300 times each
   - every stacked lesson, to make sure it writes exactly the right answer

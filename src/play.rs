@@ -867,28 +867,13 @@ impl Play {
         let answered = self.answered().max(1);
         let total = self.total.get();
         let clean = self.clean.get();
-        let pct = clean * 100 / answered;
-        let stars: u8 = match pct {
-            90.. => 3,
-            60.. => 2,
-            _ => 1,
-        };
-        // Medals are for finishing a long run with 3 stars.
-        let medal = (answered >= total && total >= 50 && stars == 3).then_some(total as u32);
         let has_next = levels::all().nth(self.flat + 1).is_some();
-        let new_medal = {
+        let (stars, new_medal) = {
             let mut s = self.app.store.borrow_mut();
             let p = &mut s.profiles[self.app.player.get()];
-            let best = p.stars(self.level.id).max(stars);
-            p.stars.insert(self.level.id.to_string(), best);
-            p.solved += answered as u32;
-            p.best_streak = p.best_streak.max(self.best_streak.get());
-            let new_medal = medal.filter(|&m| m > p.medal(self.level.id));
-            if let Some(m) = new_medal {
-                p.medals.insert(self.level.id.to_string(), m);
-            }
+            let out = p.apply_run(self.level.id, answered as u32, total as u32, clean as u32, self.best_streak.get());
             s.save();
-            new_medal
+            out
         };
         self.record(answered >= total, stars, false);
         self.done_stars.set_text(&star_text(stars));

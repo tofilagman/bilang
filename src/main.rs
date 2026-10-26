@@ -5,25 +5,21 @@
 // No console window behind the game on Windows (debug builds keep it for logs).
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-mod advanced;
-mod answer;
-mod calc;
 mod column;
 mod confetti;
-mod expr;
 mod figure;
-mod history;
 mod learn;
-mod levels;
 mod math;
 mod play;
 mod scores;
 mod scratch;
 mod sound;
-mod store;
-mod teach;
 
-use std::{cell::Cell, cell::RefCell, rc::Rc};
+use std::{cell::Cell, cell::RefCell, path::PathBuf, rc::Rc};
+
+// The engine lives in core/ (shared with the tablet app); these keep the
+// desktop's `crate::levels`-style paths working.
+use bilang_core::{answer, calc, expr, history, levels, store, teach};
 
 use adw::prelude::*;
 use gtk::{gdk, glib};
@@ -524,6 +520,13 @@ fn use_bundled_gtk() {
     }
 }
 
+/// Where players and history are saved. $BILANG_DATA overrides it, for testing.
+fn data_dir() -> PathBuf {
+    std::env::var_os("BILANG_DATA").map(PathBuf::from).unwrap_or_else(|| {
+        directories::ProjectDirs::from("io", "r3al", "Bilang").map(|d| d.data_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("."))
+    })
+}
+
 fn main() -> glib::ExitCode {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     use_bundled_gtk();
@@ -542,7 +545,7 @@ fn main() -> glib::ExitCode {
         }
         let nav = adw::NavigationView::new();
         let win = adw::ApplicationWindow::builder().application(application).title("Bilang").default_width(1180).default_height(800).content(&nav).build();
-        let app = Rc::new(App { win: win.clone(), nav: nav.clone(), store: RefCell::new(Store::load()), player: Cell::new(0), sound: Sound::new() });
+        let app = Rc::new(App { win: win.clone(), nav: nav.clone(), store: RefCell::new(Store::load_dir(&data_dir())), player: Cell::new(0), sound: Sound::new() });
         nav.push(&players_page(&app));
         // BILANG_START=<player index>[:<level index>] opens that player's map, or a level, for testing.
         if let Some((p, l)) = std::env::var("BILANG_START").ok().and_then(|s| {

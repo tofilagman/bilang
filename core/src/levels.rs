@@ -38,7 +38,7 @@ impl Problem {
                 };
                 format!("{} {op} {}", c.top, c.bottom)
             }
-            None => crate::math::plain(&self.prompt).replace('\n', " ").trim_end_matches(" = ?").to_string(),
+            None => crate::mathtext::plain(&self.prompt).replace('\n', " ").trim_end_matches(" = ?").to_string(),
         }
     }
 }
@@ -1558,7 +1558,7 @@ mod tests {
     fn formulas_are_well_formed() {
         let check = |where_: &str, text: &str| {
             assert_eq!(text.matches('$').count() % 2, 0, "unpaired $ in {where_}: {text}");
-            let plain = crate::math::plain(text);
+            let plain = crate::mathtext::plain(text);
             assert!(!plain.contains('\\') && !plain.contains('{') && !plain.contains('}'), "{where_}: {text} → {plain}");
         };
         let mut g = StdRng::seed_from_u64(13);
