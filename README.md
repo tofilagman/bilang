@@ -1,5 +1,7 @@
 # 🦉 Bilang: a math adventure for kids
 
+[![CI](https://github.com/tofilagman/bilang/actions/workflows/ci.yml/badge.svg)](https://github.com/tofilagman/bilang/actions/workflows/ci.yml)
+
 **Bilang** (Filipino for *count*) is a free desktop game that teaches children math,
 from counting apples all the way to solving quadratics. **Kiko the owl** guides each
 child through it. Kiko cheers them on, teaches every new skill step by step the way a
@@ -131,7 +133,7 @@ available, you can build it from source.
 
 **1. Install Rust:** see <https://rustup.rs>.
 
-**2. Install GTK 4 and libadwaita (1.6 or newer):**
+**2. Install GTK 4 and libadwaita (1.5 or newer):**
 
 ```bash
 # macOS (Homebrew)
@@ -140,15 +142,21 @@ brew install gtk4 libadwaita adwaita-icon-theme
 
 ```bash
 # Fedora
-sudo dnf install gtk4-devel libadwaita-devel
+sudo dnf install gtk4-devel libadwaita-devel alsa-lib-devel
 ```
 
 ```bash
-# Ubuntu 24.10+ / Debian testing
-sudo apt install libgtk-4-dev libadwaita-1-dev
+# Ubuntu 24.04+ / Debian 13+
+sudo apt install build-essential libgtk-4-dev libadwaita-1-dev libasound2-dev
 ```
 
-On Windows, use [MSYS2](https://www.msys2.org/) and install `gtk4` and `libadwaita` from the CLANG64/UCRT64 repository.
+On Windows, install [MSYS2](https://www.msys2.org/), open the **UCRT64** terminal, and run:
+
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-libadwaita mingw-w64-ucrt-x86_64-rust mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-gcc git
+```
+
+Then do step 3 in that same terminal (you can skip installing Rust in step 1).
 
 **3. Build and play:**
 
@@ -158,8 +166,9 @@ cd bilang
 cargo run --release
 ```
 
-> So far Bilang has been tested on macOS. Linux and Windows should work with the
-> libraries above. Reports and fixes are very welcome!
+> Every change is built and tested automatically on Linux, macOS and Windows (see the
+> CI badge above). So far the game itself has been played on macOS, so reports from
+> Linux and Windows players are very welcome!
 
 ### Where progress is saved
 
@@ -191,6 +200,8 @@ src/
   main.rs     players, map, styles
 ```
 
+- CI (`.github/workflows/ci.yml`) builds and runs the tests on Ubuntu 24.04, macOS
+  (Homebrew) and Windows (MSYS2 UCRT64) for every push and pull request.
 - `cargo test` checks:
   - every level's generator, 300 times each
   - every stacked lesson, to make sure it writes exactly the right answer
