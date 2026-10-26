@@ -475,15 +475,17 @@ fn main() -> glib::ExitCode {
         let win = adw::ApplicationWindow::builder().application(application).title("Bilang").default_width(1180).default_height(800).content(&nav).build();
         let app = Rc::new(App { win: win.clone(), nav: nav.clone(), store: RefCell::new(Store::load()), player: Cell::new(0), sound: Sound::new() });
         nav.push(&players_page(&app));
-        // BILANG_START=<player index>:<level index> jumps straight into a level, for testing.
+        // BILANG_START=<player index>[:<level index>] opens that player's map, or a level, for testing.
         if let Some((p, l)) = std::env::var("BILANG_START").ok().and_then(|s| {
-            let (p, l) = s.split_once(':')?;
-            Some((p.parse::<usize>().ok()?, l.parse::<usize>().ok()?))
+            let (p, l) = s.split_once(':').map_or((s.as_str(), None), |(p, l)| (p, Some(l)));
+            Some((p.parse::<usize>().ok()?, l.map(|l| l.parse::<usize>().ok()).unwrap_or(None)))
         }) && p < app.store.borrow().profiles.len()
         {
             app.player.set(p);
             nav.push(&map_page(&app));
-            nav.push(&play::page(&app, l));
+            if let Some(l) = l {
+                nav.push(&play::page(&app, l));
+            }
         }
         // BILANG_SHEET=<player index> opens that child's score sheet, for testing.
         if let Some(p) = std::env::var("BILANG_SHEET").ok().and_then(|s| s.parse::<usize>().ok())

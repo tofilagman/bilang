@@ -474,6 +474,9 @@ impl Play {
             }
         }
         self.setup_say.set_text(&format!("How many questions today? {why} I suggest {suggest}!"));
+        clear(&self.hints);
+        self.hint_btn.set_sensitive(false);
+        self.hint_btn.set_label("💡 Hints come during practice");
         self.stack.set_visible_child_name("setup");
         self.start.grab_focus();
     }
