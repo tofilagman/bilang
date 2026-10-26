@@ -206,3 +206,10 @@ src/
 
 Ideas, new levels, translations and bug reports are all welcome. Open an issue or a
 pull request. 🦉
+
+---
+
+## License
+
+Bilang is free and open source under the [MIT License](LICENSE). Use it at home or in
+class, share it, and build on it.
