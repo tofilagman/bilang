@@ -126,10 +126,28 @@ Seven worlds and 51 levels, from Grade 1 up to high school:
 
 ---
 
-## Getting started
+## Download
 
-Bilang is built with Rust and GTK 4 / libadwaita. Until ready-made installers are
-available, you can build it from source.
+Get the latest version from the **[Releases page](https://github.com/tofilagman/bilang/releases/latest)**:
+
+| Computer | Download |
+|---|---|
+| **Windows** (64-bit) | `Bilang-…-windows-x64-setup.exe`, or the portable `.zip` |
+| **Mac** (Apple silicon: M1 or newer) | `Bilang-…-mac-arm64.dmg` |
+| **Ubuntu 24.04+ / Debian 13+** | `Bilang-…-linux-amd64.deb` |
+| **Any Linux** | `Bilang-…-linux-x86_64.flatpak` |
+
+Bilang isn't signed by Apple or Microsoft yet, so the first time you open it your
+computer asks to make sure:
+
+- **Windows:** if you see "Windows protected your PC", click **More info → Run anyway**.
+- **Mac:** drag Bilang into Applications, then **right-click Bilang → Open → Open**.
+- **Ubuntu:** `sudo apt install ./Bilang-*-linux-amd64.deb`
+- **Flatpak:** `flatpak install --user Bilang-*.flatpak`
+
+## Building from source
+
+Bilang is built with Rust and GTK 4 / libadwaita.
 
 **1. Install Rust:** see <https://rustup.rs>.
 
@@ -198,10 +216,19 @@ src/
   history.rs  session recording, stats, CSV export
   scores.rs   the parents' score sheet
   main.rs     players, map, styles
+packaging/    app icon, Mac/Windows/Linux installers
 ```
 
 - CI (`.github/workflows/ci.yml`) builds and runs the tests on Ubuntu 24.04, macOS
   (Homebrew) and Windows (MSYS2 UCRT64) for every push and pull request.
+- Releases (`.github/workflows/release.yml`): push a tag matching the Cargo.toml
+  version (`git tag v0.1.0 && git push origin v0.1.0`) and CI builds the installers
+  from `packaging/` and publishes them. Running the workflow by hand builds them
+  as artifacts without publishing. The packaging scripts:
+  - `packaging/macos/bundle.sh` makes a self-contained `.app` and `.dmg`.
+  - `packaging/windows/package.sh` (in the MSYS2 UCRT64 shell) makes the installer and zip.
+  - `cargo deb` makes the `.deb`.
+  - `packaging/linux/io.r3al.bilang.yml` is the Flatpak manifest.
 - `cargo test` checks:
   - every level's generator, 300 times each
   - every stacked lesson, to make sure it writes exactly the right answer

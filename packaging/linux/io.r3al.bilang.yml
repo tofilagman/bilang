@@ -1,0 +1,44 @@
+# Flatpak for Bilang (any Linux). Built by the release workflow, or on a Linux
+# box with flatpak-builder, from the repo root:
+#   flatpak-builder --user --install-deps-from=flathub --force-clean --repo=repo build-dir packaging/linux/io.r3al.bilang.yml
+#   flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo repo Bilang.flatpak io.r3al.bilang
+app-id: io.r3al.bilang
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: bilang
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # sounds: cpal uses ALSA, which the runtime routes to PulseAudio/PipeWire
+  - --socket=pulseaudio
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  # crates are fetched during the build (fine for our own bundle; Flathub
+  # itself would need them vendored as sources)
+  build-args:
+    - --share=network
+  env:
+    CARGO_HOME: /run/build/bilang/cargo
+modules:
+  - name: bilang
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --locked
+      - install -Dm755 target/release/bilang /app/bin/bilang
+      - install -Dm644 packaging/linux/io.r3al.bilang.desktop /app/share/applications/io.r3al.bilang.desktop
+      - install -Dm644 packaging/linux/io.r3al.bilang.metainfo.xml /app/share/metainfo/io.r3al.bilang.metainfo.xml
+      - install -Dm644 packaging/icon.svg /app/share/icons/hicolor/scalable/apps/io.r3al.bilang.svg
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - target
+          - .flatpak-builder
+          - build-dir
+          - repo

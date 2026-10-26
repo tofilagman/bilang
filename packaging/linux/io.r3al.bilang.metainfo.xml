@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.r3al.bilang</id>
+  <name>Bilang</name>
+  <summary>A math adventure for kids, from counting to algebra</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.r3al"><name>tofi lagman</name></developer>
+  <description>
+    <p>Kiko the owl guides children from counting apples to solving quadratics.
+    Every level starts with a hands-on lesson, wrong answers open step-by-step
+    hints, and stacked addition, subtraction, multiplication and long division
+    are done column by column, the way they are taught in school.</p>
+    <p>Stars, streaks, medals and confetti keep it fun, and a score sheet shows
+    parents how each child is doing. It works offline, with no accounts or ads.</p>
+  </description>
+  <launchable type="desktop-id">io.r3al.bilang.desktop</launchable>
+  <url type="homepage">https://github.com/tofilagman/bilang</url>
+  <categories><category>Education</category><category>Math</category></categories>
+  <content_rating type="oars-1.1"/>
+  <releases><release version="0.1.0" date="2026-10-26"/></releases>
+</component>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a8"/>
+      <stop offset="1" stop-color="#9fd3ff"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a0673f"/>
+      <stop offset="1" stop-color="#7a4a2b"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#sky)"/>
+  <!-- ear tufts -->
+  <path d="M150 150 L168 78 L222 128 Z" fill="#7a4a2b"/>
+  <path d="M362 150 L344 78 L290 128 Z" fill="#7a4a2b"/>
+  <!-- body -->
+  <ellipse cx="256" cy="282" rx="152" ry="170" fill="url(#body)"/>
+  <!-- belly -->
+  <ellipse cx="256" cy="338" rx="96" ry="104" fill="#f3d9b1"/>
+  <!-- belly feathers as + and × -->
+  <g stroke="#c99a66" stroke-width="12" stroke-linecap="round">
+    <path d="M226 318 h28 M240 304 v28"/>
+    <path d="M268 352 l20 20 M288 352 l-20 20"/>
+    <path d="M224 382 h28"/>
+  </g>
+  <!-- eyes -->
+  <circle cx="198" cy="214" r="62" fill="#ffffff"/>
+  <circle cx="314" cy="214" r="62" fill="#ffffff"/>
+  <circle cx="198" cy="214" r="62" fill="none" stroke="#f2a33a" stroke-width="12"/>
+  <circle cx="314" cy="214" r="62" fill="none" stroke="#f2a33a" stroke-width="12"/>
+  <circle cx="214" cy="222" r="28" fill="#2d2d5a"/>
+  <circle cx="330" cy="222" r="28" fill="#2d2d5a"/>
+  <circle cx="223" cy="212" r="9" fill="#ffffff"/>
+  <circle cx="339" cy="212" r="9" fill="#ffffff"/>
+  <!-- beak -->
+  <path d="M256 250 L234 276 L256 302 L278 276 Z" fill="#fb8500"/>
+  <!-- feet -->
+  <g fill="#fb8500">
+    <ellipse cx="214" cy="452" rx="30" ry="14"/>
+    <ellipse cx="298" cy="452" rx="30" ry="14"/>
+  </g>
+</svg>

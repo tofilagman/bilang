@@ -2,6 +2,9 @@
 //! counting to quadratics, and Kiko the owl cheers you on with hints that
 //! teach the method, not just the answer.
 
+// No console window behind the game on Windows (debug builds keep it for logs).
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod answer;
 mod column;
 mod confetti;
@@ -458,10 +461,43 @@ fn grown_up_menu(app: &Rc<App>) -> gtk::MenuButton {
     gtk::MenuButton::builder().icon_name("open-menu-symbolic").popover(&pop).tooltip_text("For grown-ups").build()
 }
 
+/// Inside the self-contained Mac app or the Windows install (see packaging/),
+/// point GTK at the schemas, icons and image loaders shipped with it. Runs
+/// first thing in main, before any other thread exists.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn use_bundled_gtk() {
+    let Some(dir) = std::env::current_exe().ok().and_then(|e| Some(e.parent()?.to_path_buf())) else {
+        return;
+    };
+    let res = if cfg!(target_os = "macos") { dir.join("../Resources") } else { dir };
+    let share = res.join("share");
+    if !share.join("glib-2.0/schemas/gschemas.compiled").exists() {
+        return; // a plain cargo build uses the system's GTK
+    }
+    let pixbuf = res.join("lib/gdk-pixbuf-2.0/2.10.0");
+    // loaders.cache wants absolute paths, and the app can live anywhere
+    let cache = std::env::temp_dir().join(format!("{APP_ID}-loaders.cache"));
+    if let Ok(t) = std::fs::read_to_string(pixbuf.join("loaders.cache.in")) {
+        let loaders = pixbuf.join("loaders").to_string_lossy().replace('\\', "/");
+        if std::fs::write(&cache, t.replace("@LOADERS_DIR@", &loaders)).is_ok() {
+            unsafe { std::env::set_var("GDK_PIXBUF_MODULE_FILE", &cache) };
+        }
+    }
+    unsafe {
+        std::env::set_var("GSETTINGS_SCHEMA_DIR", share.join("glib-2.0/schemas"));
+        std::env::set_var("XDG_DATA_DIRS", &share);
+        std::env::set_var("GTK_DATA_PREFIX", &res);
+        std::env::set_var("GTK_EXE_PREFIX", &res);
+    }
+}
+
 fn main() -> glib::ExitCode {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    use_bundled_gtk();
     let application = adw::Application::builder().application_id(APP_ID).build();
     application.connect_startup(|_| {
         adw::StyleManager::default().set_color_scheme(adw::ColorScheme::ForceLight);
+        gtk::Window::set_default_icon_name(APP_ID);
         let css = gtk::CssProvider::new();
         css.load_from_string(CSS);
         gtk::style_context_add_provider_for_display(&gdk::Display::default().expect("display"), &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);

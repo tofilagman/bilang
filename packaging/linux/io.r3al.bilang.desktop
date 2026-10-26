@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Bilang
+GenericName=Math Game for Kids
+Comment=A math adventure for kids, from counting to algebra, with a helper owl
+Exec=bilang
+Icon=io.r3al.bilang
+Terminal=false
+Categories=Education;Math;Game;KidsGame;
+Keywords=math;kids;children;school;addition;multiplication;fractions;algebra;mdas;
+StartupWMClass=io.r3al.bilang
